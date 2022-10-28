@@ -1,0 +1,200 @@
+/*
+	Before using on Switch, make sure wired USB connection is enabled in System Settings.
+*/
+
+#pragma METAINFO("Steam Controller", 1, 0, "DaMu")
+ 
+#define SENSITIVITY_X   5.0
+#define SENSITIVITY_Y   5.0
+
+#define DEADZONE_X	      0.0
+#define DEADZONE_Y        0.0
+
+#define TOUCHTHRESH			45.0
+
+#define DEADZONE_L_X    20.0
+#define DEADZONE_L_Y    20.0
+#define DEADZONE_D      1.0
+#define MINLEFT_X		    35.0
+#define MINLEFT_Y       35.0
+#define OUTDEAD_L_X		  68.0
+#define OUTDEAD_L_Y		  68.0
+#define gyroMultiply	  2.0
+#define leftLeanPoint   -18.0
+ 
+bool leftPress;
+//lean left to click Left Stick. LSC defaults to Right Stick Click.
+bool leanLeft;
+bool rightPress;
+ 
+main {
+	//is left pad being touched?
+	leftPress = isLeftPress();
+	deadzones(leftPress);
+	rightPress = isRightPress();	
+//	rightPad(rightPress);
+	
+	//least required touch distance for maximum output
+	outDeadZone(leftPress);
+	//Steam gyro is 1/2 Switch's
+	buffGyro();
+	if(get_actual(ACCEL_1_X) < leftLeanPoint) {
+		leanLeft = TRUE;
+	} else {
+		leanLeft = FALSE;
+	}
+//	leanLeft = (get_val(ACCEL_1_X < leftLeanPoint)) ? TRUE : FALSE;
+	extraButtons(leanLeft);
+}
+
+void defunct(){
+	    if(get_val(BUTTON_8)) {
+        static fix32 offset_x;
+        static fix32 offset_y;
+        if(event_active(BUTTON_8)) {
+            offset_x = get_val(ACCEL_1_X);
+            offset_y = get_val(ACCEL_1_Y);
+        }
+        if(abs(get_val(STICK_1_X)) <= DEADZONE_X && abs(get_val(STICK_1_Y)) <= DEADZONE_Y) {
+            motion_aiming(offset_x, offset_y);
+        }
+    }
+}
+
+void motion_aiming(fix32 offset_x, fix32 offset_y) {
+    static fix32 accel_x, accel_y;
+    static fix32 stick_x, stick_y;
+    if(accel_x != get_actual(ACCEL_1_X) || accel_y != get_actual(ACCEL_1_Y)) {
+        accel_x = get_actual(ACCEL_1_X);
+        accel_y = get_actual(ACCEL_1_Y);
+        stick_x = (accel_x - offset_x) * SENSITIVITY_X;
+        stick_y = (accel_y - offset_y) * SENSITIVITY_Y;
+ 
+        fix32 signal_x = (stick_x < 0.0) ? (stick_x = inv(stick_x), -1.0) : (stick_x > 0.0) ? 1.0 : 0.0;
+        fix32 signal_y = (stick_y < 0.0) ? (stick_y = inv(stick_y), -1.0) : (stick_y > 0.0) ? 1.0 : 0.0;
+        fix32 angle = atan2(stick_y, stick_x);
+ 
+        stick_x = clamp(((DEADZONE_X * pow(cos(angle), DEADZONE_D)) + stick_x) * signal_x, -100.0, 100.0);
+        stick_y = clamp(((DEADZONE_Y * pow(sin(angle), DEADZONE_D)) + stick_y) * signal_y, -100.0, 100.0);
+    }
+    set_val(STICK_1_X, stick_x);
+    set_val(STICK_1_Y, stick_y);
+    return;
+}
+
+//If touching left pad, move left stick. Reset to center on release.
+bool isLeftPress(){
+	if (get_actual(BUTTON_19) > TOUCHTHRESH){
+		ffb_set(FFB_1, 50.0, 5);
+		return(TRUE);
+	}
+	else{
+		ffb_reset();
+//		set_val(STICK_2_X, 0);
+//		set_val(STICK_2_Y, 0);
+	}
+	return(FALSE);
+}
+
+bool isRightPress(){
+	if (get_val(BUTTON_20)){
+		ffb_set(FFB_2, 50.0, 5);
+		return(TRUE);
+	}
+	else{
+//Not touching right pad resets right stick output.
+		ffb_reset();
+//		set_val(STICK_1_X, 0);
+//		set_val(STICK_1_Y, 0);
+	}
+	return(FALSE);
+}
+
+void outDeadZone(bool isLeft) {
+	if (isLeft) {
+		set_val(STICK_2_X, get_actual(POINT_1_X));
+		set_val(STICK_2_Y, get_actual(POINT_1_Y));
+		if(get_actual(POINT_1_X) > OUTDEAD_L_X) {
+			set_val(STICK_2_X, 100.0);
+		}
+		if(get_actual(POINT_1_X) < (OUTDEAD_L_X * -1.0)) {
+			set_val(STICK_2_X, -100.0);
+		}
+		
+		if(get_actual(POINT_1_Y) > OUTDEAD_L_Y) {
+			set_val(STICK_2_Y, 100.0);
+		}
+		if(get_actual(POINT_1_Y) < (OUTDEAD_L_Y * -1.0)) {
+			set_val(STICK_2_Y, -100.0);
+		}
+	}
+}
+
+void deadzones(bool left){
+	if (left){
+		if(get_val(STICK_2_X) > 0.0) {
+				if(get_val(STICK_2_X) > DEADZONE_L_X) {
+					set_val(STICK_2_X, get_val(STICK_2_X)+MINLEFT_X);
+					if(get_val(STICK_2_X) > OUTDEAD_L_X) {
+						set_val(STICK_2_X, 100.0);
+					}
+			}
+		}
+		else {
+			if(get_val(STICK_2_X) < (DEADZONE_L_X * -1.0)) {
+				set_val(STICK_2_X, get_val(STICK_2_X)-MINLEFT_X);
+				if(get_val(STICK_2_X) < (OUTDEAD_L_X * -1.0)) {
+					set_val(STICK_2_X, -100.0);
+				}
+			}
+		}
+		if(get_val(STICK_2_Y) > 0.0) {
+			if(get_val(STICK_2_Y) > DEADZONE_L_Y) {
+				set_val(STICK_2_X, get_val(STICK_2_Y)+MINLEFT_Y);
+				if(get_val(STICK_2_Y) > OUTDEAD_L_Y) {
+					set_val(STICK_2_Y, 100.0);
+				}
+			}
+		}
+		else {
+			if(get_val(STICK_2_Y) < (DEADZONE_L_Y * -1.0)) {
+				set_val(STICK_2_Y, get_val(STICK_2_Y)-MINLEFT_Y);
+				if(get_val(STICK_2_Y) < (OUTDEAD_L_Y * -1.0)) {
+					set_val(STICK_2_Y, -100.0);
+				}
+			}
+		}		
+	}
+}
+
+void buffGyro(){
+	set_val(GYRO_1_Z, get_val(GYRO_1_Z) * gyroMultiply);
+	set_val(GYRO_1_Y, get_val(GYRO_1_Y) * gyroMultiply);
+}
+
+void extraButtons(bool leanLeft) {
+	//left Paddle is Accpet
+	if(get_val(PADDLE_1)){
+		set_val(BUTTON_15, 100.0);
+	}
+	//right Paddle is Jump
+	if(get_val(PADDLE_2)){
+		set_val(BUTTON_16, 100.0);
+	}
+	//right Pad is Jump
+	if(get_val(BUTTON_6)){
+		set_val(BUTTON_6, 0.0);
+		set_val(BUTTON_16, 100.0);
+	}
+	if(get_val(BUTTON_9) && !leanLeft) {
+			set_val(BUTTON_9, 0.0);
+			set_val(BUTTON_6, 100.0);
+	}
+}
+
+void rightPad(bool isRight) {
+	if (isRight) {
+		set_val(STICK_1_X, get_actual(POINT_2_X));
+		set_val(STICK_1_X, get_actual(POINT_2_Y));
+	}
+}
