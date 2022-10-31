@@ -1,5 +1,9 @@
 /*
 	Before using on Switch, make sure wired USB connection is enabled in System Settings.
+	TO DO
+	There is a slight degree tilt of 20 degrees when in a max cardinal direction on left trackpad. Make a rotation function to adjusut.
+	Trackpad deadzone and outer limit do not match stick's. Use a trig function to properly map them back to one:one.
+	Simplify button remaps.
 */
 
 #pragma METAINFO("Steam Controller", 1, 0, "DaMu")
@@ -14,11 +18,13 @@
 
 #define DEADZONE_L_X    20.0
 #define DEADZONE_L_Y    20.0
+#define DEADZONE_R_X    30.0
+#define DEADZONE_R_Y    30.0
 #define DEADZONE_D      1.0
 #define MINLEFT_X		    35.0
 #define MINLEFT_Y       35.0
-#define OUTDEAD_L_X		  68.0
-#define OUTDEAD_L_Y		  68.0
+#define OUTDEAD_L_X		  63.0
+#define OUTDEAD_L_Y		  63.0
 #define gyroMultiply	  2.0
 #define leftLeanPoint   -18.0
  
@@ -194,7 +200,11 @@ void extraButtons(bool leanLeft) {
 
 void rightPad(bool isRight) {
 	if (isRight) {
-		set_val(STICK_1_X, get_actual(POINT_2_X));
-		set_val(STICK_1_X, get_actual(POINT_2_Y));
+		if (get_actual(POINT_2_X) > DEADZONE_R_X) {
+			set_val(STICK_1_X, get_actual(POINT_2_X));
+		}
+		if (get_actual(POINT_2_Y) > DEADZONE_R_Y) {
+			set_val(STICK_1_Y, get_actual(POINT_2_Y));
+		}
 	}
 }
