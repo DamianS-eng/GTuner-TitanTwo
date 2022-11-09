@@ -4,36 +4,71 @@
 	There is a slight degree tilt of 20 degrees when in a max cardinal direction on left trackpad. Make a rotation function to adjusut.
 	Trackpad deadzone and outer limit do not match stick's. Use a trig function to properly map them back to one:one.
 	Simplify button remaps.
+	
+	For OUTDEAD defines, choose the smallest value that the touchpads can read out of all diagonal directions.
 */
 
 #pragma METAINFO("Steam Controller", 1, 0, "DaMu")
-#include <remapper.gph> 
+//#include <remapper.gph> 
+#include <display.gph>
 
-#define SENSITIVITY_X   5.0
-#define SENSITIVITY_Y   5.0
+#define SEGTIME		1500
 
-#define DEADZONE_X	      0.0
-#define DEADZONE_Y        0.0
+#define SENSITIVITY_X		5.0
+#define SENSITIVITY_Y		5.0
+#define SCALE		1.4
 
-#define TOUCHTHRESH			45.0
+#define DEADZONE_X		0.0
+#define DEADZONE_Y		0.0
 
-#define DEADZONE_L_X    20.0
+#define TOUCHTHRESH		45.0
+
+#define DEADZONE_L_X		20.0
 #define DEADZONE_L_Y    20.0
 #define DEADZONE_R_X    30.0
 #define DEADZONE_R_Y    30.0
-#define DEADZONE_D      1.0
-#define MINLEFT_X		    35.0
-#define MINLEFT_Y       35.0
-#define OUTDEAD_L_X		  63.0
-#define OUTDEAD_L_Y		  63.0
-#define gyroMultiply	  2.0
-#define leftLeanPoint   -18.0
+#define DEADZONE_D		1.0
+#define MINLEFT_X		35.0
+#define MINLEFT_Y		35.0
+#define OUTDEAD_L_X		61.5
+#define OUTDEAD_L_Y		61.5
+#define gyroMultiply		2.0
+#define leftLeanPoint		-18.0
+
  
 bool leftPress;
 //lean left to click Left Stick. LSC defaults to Right Stick Click.
 bool leanLeft;
 bool rightPress;
- 
+
+uint8 status_a, status_b, protocol_a, protocol_b, device_a, device_b;
+uint8 seg = 0;
+
+uint8 segDis () {
+	status_a = port_status(PORT_USB_A, &protocol_a, &device_b);
+	status_b = port_status(PORT_USB_B, &protocol_b, &device_b);
+	if((status_a & DIR_INPUT) && (protocol_a == PROTOCOL_STEAM)) {
+		return(_S_);
+}
+	return(_N_);
+}
+
+uint8 segDisRepeat (uint8 i) {
+	status_a = port_status(PORT_USB_A, &protocol_a, &device_b);
+	status_b = port_status(PORT_USB_B, &protocol_b, &device_b);
+	const uint8 steamName[5] = {
+		_S_, _T_, _E_, _A_, _M_
+	},
+	noController[5] = {
+		_N_, _O_, _N_, _E_, _O_
+	};
+	if((status_a & DIR_INPUT) && (protocol_a == PROTOCOL_STEAM)) {
+		return(steamName[i]);
+	}
+	return(noController[i]);
+}
+
+/*
 const uint8 SteamNintendo[43] = {
     RMP_USB_A, 
     BUTTON_1,  BUTTON_2,  BUTTON_3,  BUTTON_14, BUTTON_15, BUTTON_6,  BUTTON_7, 
@@ -45,22 +80,32 @@ const uint8 SteamNintendo[43] = {
     GYRO_1_X,  GYRO_1_Y,  GYRO_1_Z,
     BUTTON_15,  BUTTON_16,  PADDLE_3,  PADDLE_4
 };
- 
+ */
+
 init {
 //	remapper(SteamNintendo);
 //	device_poweroff();
-}	
+	display_overlay(segDis(), SEGTIME);
+}
 
 
 main {
+	if(mod((fix32)system_time(), (fix32)SEGTIME) == 0.0) {
+		display_overlay(segDisRepeat(seg), SEGTIME);
+		seg++;
+		if(seg == 5) {
+			seg = 0;
+		}
+	}
 	//is left pad being touched?
 	leftPress = isLeftPress();
-	deadzones(leftPress);
+//	deadzones(leftPress);
 	rightPress = isRightPress();	
-	rightPad(rightPress);
+//	use right pad to swipe and turn
+//	rightPad(rightPress);
 	
 	//least required touch distance for maximum output
-//	outDeadZone(leftPress);
+	outDeadZone(leftPress);
 	//Steam gyro is 1/2 Switch's
 	buffGyro();
 	if(get_actual(ACCEL_1_X) < leftLeanPoint) {
@@ -136,34 +181,44 @@ bool isLeftPress(){
 
 bool isRightPress(){
 	if (get_val(BUTTON_20)){
-		//ffb_set(FFB_2, 50.0, 5);
+//	ffb_set(FFB_2, 50.0, 5);
 		return(TRUE);
 	}
-	else{
+/*
 //Not touching right pad resets right stick output.
-		//ffb_reset();
-//		set_val(STICK_1_X, 0);
-//		set_val(STICK_1_Y, 0);
+		ffb_reset();
+		set_val(STICK_1_X, 0);
+		set_val(STICK_1_Y, 0);
 	}
+*/
 	return(FALSE);
 }
 
 void outDeadZone(bool isLeft) {
 	if (isLeft) {
-		set_val(STICK_2_X, get_actual(POINT_1_X));
-		set_val(STICK_2_Y, get_actual(POINT_1_Y));
-		if(get_actual(POINT_1_X) > OUTDEAD_L_X) {
-			set_val(STICK_2_X, 100.0);
+		if(get_actual(POINT_1_X) > DEADZONE_L_X) {
+			set_val(STICK_2_X, clamp(get_actual(POINT_1_X)*SCALE, MINLEFT_X, 100.0));
+			if(get_actual(POINT_1_X) > OUTDEAD_L_X) {
+				set_val(STICK_2_X, 100.0);
+			}			
 		}
-		if(get_actual(POINT_1_X) < (OUTDEAD_L_X * -1.0)) {
-			set_val(STICK_2_X, -100.0);
+		if(get_actual(POINT_1_Y) > DEADZONE_L_Y) {
+			set_val(STICK_2_Y, clamp(get_actual(POINT_1_Y)*SCALE, MINLEFT_Y, 100.0));
+			if(get_actual(POINT_1_Y) > OUTDEAD_L_Y) {
+				set_val(STICK_2_Y, 100.0);
+			}
 		}
-		
-		if(get_actual(POINT_1_Y) > OUTDEAD_L_Y) {
-			set_val(STICK_2_Y, 100.0);
+		if(get_actual(POINT_1_X) < inv(DEADZONE_L_X)) {
+			set_val(STICK_2_X, clamp(get_actual(POINT_1_X)*SCALE, -100.0, inv(MINLEFT_X)));
+			if(get_actual(POINT_1_X) < inv(OUTDEAD_L_X)) {
+				set_val(STICK_2_X, -100.0);
 		}
-		if(get_actual(POINT_1_Y) < (OUTDEAD_L_Y * -1.0)) {
-			set_val(STICK_2_Y, -100.0);
+		}
+		if(get_actual(POINT_1_Y) < inv(DEADZONE_L_Y)) {
+			set_val(STICK_2_Y, clamp(get_actual(POINT_1_Y)*SCALE, -100.0, inv(MINLEFT_Y)));
+			if(get_actual(POINT_1_Y) < inv(OUTDEAD_L_Y)) {
+				set_val(STICK_2_Y, -100.0);
+			}
 		}
 	}
 }
