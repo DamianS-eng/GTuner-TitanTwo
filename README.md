@@ -7,7 +7,7 @@ The Steam controller can normally be recognized by the TitanTwo, but some modifi
 
 ### Device Configuration
 
-Refer to GTuner's guide for details: https://www.consoletuner.com/wiki/index.php?id=t2:usage_guides:systems:switch
+Refer to GTuner's guide for details: [Nintendo Switch Guide on ConsoleTuner](https://www.consoletuner.com/wiki/index.php?id=t2:usage_guides:systems:switch)
 
 Adjust input protocol. The Steam Controller's polling rate is 6ms, so the TitanTwo needs to compensate to give its best performance.
 
@@ -16,6 +16,18 @@ Adjust output protocol. The expected polling rate of USB Switch controllers is 8
 **!** Make sure that Wired USB Communication is enabled in the Switch System Settings before plugging the TitanTwo into the console.
 
 ### Import the Script
+
+1. Connect the TitanTwo from the PROG slot with a Micro USB cable to a computer with [GTunerIV IDE](https://www.consoletuner.com/titan-two-downloads/) installed and running.
+
+2. Download the supplied [steam.gpc](https://github.com/DamianS-eng/GTuner-TitanTwo/blob/main/Steam.gpc) file.
+
+3. Open and compile the script in GTunerIV. This is the chance to find anything wrong with the script, or adjust the configuration details.
+
+4. Save the script to a memory slot on the TitanTwo. The cable can now be removed from the PC.
+
+Turn on the Steam Controller and plug the USB Wireless Receiver into the left USB-A slot. The controller can also be plugged directly into this slot with a Micro USB data cable. Bluetooth is possible but not configured in the script at this time, and requires a separate bluetooth module for the TitanTwo.
+
+Supply power to the TitanTwo and connect it from the OUTPUT slot to the Nintendo Switch. Use the arrow keys on the TitanTwo to select the number of the slot the script is stored.
 
 ### Configure the Script
 
