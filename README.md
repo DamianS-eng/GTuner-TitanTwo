@@ -38,7 +38,7 @@ defines the interval, in milliseconds, to cycle between the letts on the TitanTw
 is a multiplier scale to be placed at the end before sending out right-stick output.
 
 **DEADZONE** 
-is used as a radius in the center of the touchpad inside whose circle no output is sent. Increase the value to make the space bigger.
+is the linear radius from the center of the touchpad inside whose axis no output is sent. Increase the value to make the space bigger.
 
 **MIN_(LEFT/RIGHT)** 
 is the smallest value sent out to the console from intended stick input. It's used as the smallest value clamped to the output. Decrease the value but keep above 0 to allow capability of fine readings around 0.
