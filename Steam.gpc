@@ -12,28 +12,29 @@
 //#include <remapper.gph> 
 #include <display.gph>
 
-#define SEGTIME		1500
-#define SEGMAX		5
+#define SEGTIME				1500
+#define SEGMAX				5
 
 #define SENSITIVITY_X		5.0
 #define SENSITIVITY_Y		5.0
-#define SCALE		1.4
 
-#define DEADZONE_X		0.0
-#define DEADZONE_Y		0.0
+#define DELTATIME			1600.0
 
-#define TOUCHTHRESH		45.0
+#define DEADZONE_X			0.0
+#define DEADZONE_Y			0.0
+
+#define TOUCHTHRESH			45.0
 
 #define DEADZONE_L_X		15.6
-#define DEADZONE_L_Y    15.6
-#define RADIAL_DEADZONE_L 15.6
-#define DEADZONE_R_X    30.0
-#define DEADZONE_R_Y    30.0
-#define DEADZONE_D		1.0
-#define MINLEFT_X		15.0
-#define MINLEFT_Y		15.0
-#define OUTDEAD_L_X		58.5
-#define OUTDEAD_L_Y		58.5
+#define DEADZONE_L_Y    	15.6
+#define RADIAL_DEADZONE_L 	15.6
+#define DEADZONE_R_X    	30.0
+#define DEADZONE_R_Y    	30.0
+#define DEADZONE_D			1.0
+#define MINLEFT_X			15.0
+#define MINLEFT_Y			15.0
+#define OUTDEAD_L_X			58.5
+#define OUTDEAD_L_Y			58.5
 #define gyroMultiply		2.0
 #define leftLeanPoint		-18.0
 
@@ -235,22 +236,33 @@ void fixLeftTrackpad(bool left){
 	if (left){
 		if((get_actual(POINT_1_X) > DEADZONE_L_X) || (get_actual(POINT_1_X) < inv(DEADZONE_L_X)) ) {
 			fix32 solvex;
+			//if(get_actual(POINT_1_Y) == 0.0) {}
+			//ignore Y if there is no Y input
 			if(get_actual(POINT_1_X) < 0.0) {
 				solvex = max(-100.0, (fix32)((get_actual(POINT_1_X) + DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
 			}
 			if(get_actual(POINT_1_X) > 0.0) {
 				solvex = min(100.0, (fix32)((get_actual(POINT_1_X) - DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
 			}
+			//else
+			//potential = 100.0 * sqrt(pow(get_actual(POINT_1_X),2) + pow(get_actual(POINT_1_Y),2))) / (OUTDEAD_L_X - DEADZONE_L_X)
+			//solvex = cos(atan2(get_actual(POINT_1_Y), get_actual(POINT_1_X))) * 100.0 / (OUTDEAD_L_X - DEADZONE_L_X)
 			set_val(STICK_2_X, solvex);
 		}
 		if((get_actual(POINT_1_Y) > DEADZONE_L_Y) || (get_actual(POINT_1_Y) < inv(DEADZONE_L_Y)) ) {
 			fix32 solvey;
+			//if(get_actual(POINT_1_X) == 0.0) {}
+			//ignore X if there is no X input
 			if(get_actual(POINT_1_Y) < 0.0) {
 				solvey = max(-100.0, (fix32)((get_actual(POINT_1_Y) + DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
 			}
 			else {
 				solvey = min(100.0, (fix32)((get_actual(POINT_1_Y) - DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
-			}		
+			}
+			//else
+			//potential = 100.0 * sqrt(pow(get_actual(POINT_1_X),2) + pow(get_actual(POINT_1_Y),2))) / (OUTDEAD_L_Y - DEADZONE_L_Y)
+			//solvey = sin(atan2(get_actual(POINT_1_Y), get_actual(POINT_1_X))) [potential]* 100.0 / (OUTDEAD_L_Y - DEADZONE_L_Y)
+			//printf(".1f", solvey)
 			set_val(STICK_2_Y, solvey);
 		}
 	}
