@@ -47,6 +47,8 @@ bool rightPress;
 uint8 status_a, status_b, protocol_a, protocol_b, device_a, device_b;
 uint8 seg = 0;
 
+fix32 trackBuf;
+
 uint8 segDis () {
 	status_a = port_status(PORT_USB_A, &protocol_a, &device_a);
 	status_b = port_status(PORT_USB_B, &protocol_b, &device_b);
@@ -89,6 +91,7 @@ init {
 //	remapper(SteamNintendo);
 //	device_poweroff();
 	display_overlay(segDis(), SEGTIME);
+	trackBuf =  0.0;
 }
 
 
@@ -100,6 +103,7 @@ main {
 			seg = 0;
 		}
 	}
+
 	//is left pad being touched?
 	leftPress = isLeftPress();
 	fixLeftTrackpad(leftPress);
@@ -107,8 +111,9 @@ main {
 	//outDeadZone(leftPress);	
 	rightPress = isRightPress();	
 //	use right pad to swipe and turn
-//	rightPad(rightPress);
-	
+	if(mod((fix32)system_time(), (fix32)DELTATIME) == 0.0) {
+//		trackBuf = rightPad(rightPress);
+	}
 
 	//Steam gyro is 1/2 Switch's
 	buffGyro();
@@ -293,17 +298,17 @@ void extraButtons(bool leanLeft) {
 	}
 }
 
-void rightPad(bool isRight) {
+fix32 rightPad(bool isRight) {
 	if (isRight) {
 		//get current position and save
+		current = get_actual(POINT_2_X);
+		fix32 deltaStick = current - trackBuf;
+		printf(".1f", current);
+		printf(".1f", trackBuf);
 		//compare current with previous
-		if (get_actual(POINT_2_X) > DEADZONE_R_X) {
-			set_val(STICK_1_X, get_actual(POINT_2_X));
-		}
-		if (get_actual(POINT_2_Y) > DEADZONE_R_Y) {
-			set_val(STICK_1_Y, get_actual(POINT_2_Y));
-		}
+		set_val(STICK_2_X, deltaStick);
 	}
 	//listen for event_release
 	//slowly reset current position to zero
+	return(current) ;
 }
