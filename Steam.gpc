@@ -18,23 +18,23 @@
 #define SENSITIVITY_X		5.0
 #define SENSITIVITY_Y		5.0
 
-#define DELTATIME			1600.0
+#define DELTATIME			16.0
 
 #define DEADZONE_X			0.0
 #define DEADZONE_Y			0.0
 
 #define TOUCHTHRESH			45.0
 
-#define DEADZONE_L_X		15.6
-#define DEADZONE_L_Y    	15.6
-#define RADIAL_DEADZONE_L 	15.6
+#define DEADZONE_L_X		6.6
+#define DEADZONE_L_Y    	6.6
+#define RADIAL_DEADZONE_L  5.6
 #define DEADZONE_R_X    	30.0
 #define DEADZONE_R_Y    	30.0
 #define DEADZONE_D			1.0
 #define MINLEFT_X			15.0
 #define MINLEFT_Y			15.0
-#define OUTDEAD_L_X			58.5
-#define OUTDEAD_L_Y			58.5
+#define OUTDEAD_L_X			57.5
+#define OUTDEAD_L_Y			57.5
 #define gyroMultiply		2.0
 #define leftLeanPoint		-18.0
 
@@ -103,17 +103,12 @@ main {
 			seg = 0;
 		}
 	}
-
 	//is left pad being touched?
 	leftPress = isLeftPress();
 	fixLeftTrackpad(leftPress);
 	//least required touch distance for maximum output
-	//outDeadZone(leftPress);	
 	rightPress = isRightPress();	
 //	use right pad to swipe and turn
-	if(mod((fix32)system_time(), (fix32)DELTATIME) == 0.0) {
-//		trackBuf = rightPad(rightPress);
-	}
 
 	//Steam gyro is 1/2 Switch's
 	buffGyro();
@@ -161,24 +156,6 @@ void motion_aiming(fix32 offset_x, fix32 offset_y) {
     return;
 }
 
-void trackpadTrace() {
-	    if(get_val(BUTTON_20)) {
-        static fix32 offset_x;
-        static fix32 offset_y;
-        if(event_active(BUTTON_20)) {
-            offset_x = get_actual(POINT_2_X);
-            offset_y = get_actual(POINT_2_Y);
-        }
-				static fix32 track_x = (get_actual(POINT_2_X) - offset_x) * SENSITIVITY_X;
-				static fix32 track_y = (get_actual(POINT_2_Y) - offset_y) * SENSITIVITY_Y;
-    }
-		if(event_release(BUTTON_20)) {
-			
-		}
-}
-
-
-
 //If touching left pad, move left stick. Reset to center on release.
 bool isLeftPress(){
 	if (get_actual(BUTTON_19) > TOUCHTHRESH){
@@ -208,6 +185,7 @@ bool isRightPress(){
 	return(FALSE);
 }
 
+/*
 void outDeadZone(bool isLeft) {
 	if (isLeft) {
 		if(get_actual(POINT_1_X) > DEADZONE_L_X) {
@@ -236,38 +214,40 @@ void outDeadZone(bool isLeft) {
 		}
 	}
 }
-
+*/
 void fixLeftTrackpad(bool left){
+	fix32 potential;
 	if (left){
-		if((get_actual(POINT_1_X) > DEADZONE_L_X) || (get_actual(POINT_1_X) < inv(DEADZONE_L_X)) ) {
+		if((get_actual(POINT_1_X) > RADIAL_DEADZONE_L) || (get_actual(POINT_1_X) < inv(RADIAL_DEADZONE_L)) ) {
 			fix32 solvex;
-			//if(get_actual(POINT_1_Y) == 0.0) {}
-			//ignore Y if there is no Y input
-			if(get_actual(POINT_1_X) < 0.0) {
-				solvex = max(-100.0, (fix32)((get_actual(POINT_1_X) + DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
+			if((get_actual(POINT_1_Y) < DEADZONE_L_Y) || (get_actual(POINT_1_Y) > inv(DEADZONE_L_Y))) {
+				//ignore Y if there is no Y input
+				if(get_actual(POINT_1_X) < 0.0) {
+					solvex = max(-100.0, (fix32)((get_actual(POINT_1_X) + DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
+				}
+				if(get_actual(POINT_1_X) > 0.0) {
+					solvex = min(100.0, (fix32)((get_actual(POINT_1_X) - DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
+				}
+			} else {
+					potential = 100.0 * sqrt(pow(get_actual(POINT_1_X),2.0) + pow(get_actual(POINT_1_Y),2.0)) / (OUTDEAD_L_X - DEADZONE_L_X);
+					solvex = cos(atan2(get_actual(POINT_1_Y), get_actual(POINT_1_X))) * potential;
 			}
-			if(get_actual(POINT_1_X) > 0.0) {
-				solvex = min(100.0, (fix32)((get_actual(POINT_1_X) - DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
-			}
-			//else
-			//potential = 100.0 * sqrt(pow(get_actual(POINT_1_X),2) + pow(get_actual(POINT_1_Y),2))) / (OUTDEAD_L_X - DEADZONE_L_X)
-			//solvex = cos(atan2(get_actual(POINT_1_Y), get_actual(POINT_1_X))) * 100.0 / (OUTDEAD_L_X - DEADZONE_L_X)
 			set_val(STICK_2_X, solvex);
 		}
-		if((get_actual(POINT_1_Y) > DEADZONE_L_Y) || (get_actual(POINT_1_Y) < inv(DEADZONE_L_Y)) ) {
+		if((get_actual(POINT_1_Y) > RADIAL_DEADZONE_L) || (get_actual(POINT_1_Y) < inv(RADIAL_DEADZONE_L)) ) {
 			fix32 solvey;
-			//if(get_actual(POINT_1_X) == 0.0) {}
-			//ignore X if there is no X input
-			if(get_actual(POINT_1_Y) < 0.0) {
-				solvey = max(-100.0, (fix32)((get_actual(POINT_1_Y) + DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
+			if((get_actual(POINT_1_X) < DEADZONE_L_X) || (get_actual(POINT_1_X) > inv(DEADZONE_L_X))) {
+				//ignore X if there is no X input
+				if(get_actual(POINT_1_Y) < 0.0) {
+					solvey = max(-100.0, (fix32)((get_actual(POINT_1_Y) + DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
+				}
+				else {
+					solvey = min(100.0, (fix32)((get_actual(POINT_1_Y) - DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
+				}
+			} else {
+				potential = 100.0 * sqrt(pow(get_actual(POINT_1_X),2.0) + pow(get_actual(POINT_1_Y),2.0)) / (OUTDEAD_L_Y - DEADZONE_L_Y);
+				solvey = sin(atan2(get_actual(POINT_1_Y), get_actual(POINT_1_X))) * potential;
 			}
-			else {
-				solvey = min(100.0, (fix32)((get_actual(POINT_1_Y) - DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
-			}
-			//else
-			//potential = 100.0 * sqrt(pow(get_actual(POINT_1_X),2) + pow(get_actual(POINT_1_Y),2))) / (OUTDEAD_L_Y - DEADZONE_L_Y)
-			//solvey = sin(atan2(get_actual(POINT_1_Y), get_actual(POINT_1_X))) [potential]* 100.0 / (OUTDEAD_L_Y - DEADZONE_L_Y)
-			//printf(".1f", solvey)
 			set_val(STICK_2_Y, solvey);
 		}
 	}
@@ -299,14 +279,17 @@ void extraButtons(bool leanLeft) {
 }
 
 fix32 rightPad(bool isRight) {
+	fix32 current = 0.0;
+
 	if (isRight) {
 		//get current position and save
 		current = get_actual(POINT_2_X);
 		fix32 deltaStick = current - trackBuf;
-		printf(".1f", current);
-		printf(".1f", trackBuf);
+		//printf("Current: %f", current);
+		//printf("Track: %f", trackBuf);
+		printf("%f", deltaStick);
 		//compare current with previous
-		set_val(STICK_2_X, deltaStick);
+		set_val(STICK_1_X, deltaStick * 100.0);
 	}
 	//listen for event_release
 	//slowly reset current position to zero
