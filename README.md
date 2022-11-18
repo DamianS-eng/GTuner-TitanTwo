@@ -9,9 +9,11 @@ The Steam controller can normally be recognized by the TitanTwo, but some modifi
 
 Refer to GTuner's guide for details: [Nintendo Switch Guide on ConsoleTuner](https://www.consoletuner.com/wiki/index.php?id=t2:usage_guides:systems:switch)
 
-Adjust input protocol. The Steam Controller's polling rate is 6ms, so the TitanTwo needs to compensate to give its best performance.
+![Device Configuration](https://github.com/DamianS-eng/GTuner-TitanTwo/blob/main/TitanTwoDeviceConfiguration.png)
 
-Adjust output protocol. The expected polling rate of USB Switch controllers is 8ms.
+Edit the input polling rate. The Steam Controller's polling rate is 6ms, so the TitanTwo needs to compensate to give its best performance.
+
+Adjust output protocol and polling rate. The expected polling rate of USB Switch controllers is 8ms.
 
 **!** Make sure that Wired USB Communication is enabled in the Switch System Settings before plugging the TitanTwo into the console.
 
