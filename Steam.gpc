@@ -47,7 +47,7 @@ bool rightPress;
 uint8 status_a, status_b, protocol_a, protocol_b, device_a, device_b;
 uint8 seg = 0;
 
-fix32 trackBuf;
+fix32 trackBuf_cont, trackBuf_release, trackBuf_diff;
 
 uint8 segDis () {
 	status_a = port_status(PORT_USB_A, &protocol_a, &device_a);
@@ -91,7 +91,9 @@ init {
 //	remapper(SteamNintendo);
 //	device_poweroff();
 	display_overlay(segDis(), SEGTIME);
-	trackBuf =  0.0;
+	trackBuf_cont =  0.0;
+	trackBuf_release =  0.0;
+	trackBuf_diff =  trackBuf_cont - trackBuf_release;
 }
 
 
@@ -105,11 +107,12 @@ main {
 	}
 	//is left pad being touched?
 	leftPress = isLeftPress();
-	fixLeftTrackpad(leftPress);
 	//least required touch distance for maximum output
+	fixLeftTrackpad(leftPress);
 	rightPress = isRightPress();	
 //	use right pad to swipe and turn
-
+//	trackBuf = rightPad(rightPress);
+	trackBuf_diff = getSwipeDifference();
 	//Steam gyro is 1/2 Switch's
 	buffGyro();
 	if(get_actual(ACCEL_1_X) < leftLeanPoint) {
@@ -119,41 +122,6 @@ main {
 	}
 //	leanLeft = (get_val(ACCEL_1_X < leftLeanPoint)) ? TRUE : FALSE;
 	extraButtons(leanLeft);
-}
-
-void defunct(){
-	    if(get_val(BUTTON_8)) {
-        static fix32 offset_x;
-        static fix32 offset_y;
-        if(event_active(BUTTON_8)) {
-            offset_x = get_val(ACCEL_1_X);
-            offset_y = get_val(ACCEL_1_Y);
-        }
-        if(abs(get_val(STICK_1_X)) <= DEADZONE_X && abs(get_val(STICK_1_Y)) <= DEADZONE_Y) {
-            motion_aiming(offset_x, offset_y);
-        }
-    }
-}
-
-void motion_aiming(fix32 offset_x, fix32 offset_y) {
-    static fix32 accel_x, accel_y;
-    static fix32 stick_x, stick_y;
-    if(accel_x != get_actual(ACCEL_1_X) || accel_y != get_actual(ACCEL_1_Y)) {
-        accel_x = get_actual(ACCEL_1_X);
-        accel_y = get_actual(ACCEL_1_Y);
-        stick_x = (accel_x - offset_x) * SENSITIVITY_X;
-        stick_y = (accel_y - offset_y) * SENSITIVITY_Y;
- 
-        fix32 signal_x = (stick_x < 0.0) ? (stick_x = inv(stick_x), -1.0) : (stick_x > 0.0) ? 1.0 : 0.0;
-        fix32 signal_y = (stick_y < 0.0) ? (stick_y = inv(stick_y), -1.0) : (stick_y > 0.0) ? 1.0 : 0.0;
-        fix32 angle = atan2(stick_y, stick_x);
- 
-        stick_x = clamp(((DEADZONE_X * pow(cos(angle), DEADZONE_D)) + stick_x) * signal_x, -100.0, 100.0);
-        stick_y = clamp(((DEADZONE_Y * pow(sin(angle), DEADZONE_D)) + stick_y) * signal_y, -100.0, 100.0);
-    }
-    set_val(STICK_1_X, stick_x);
-    set_val(STICK_1_Y, stick_y);
-    return;
 }
 
 //If touching left pad, move left stick. Reset to center on release.
@@ -278,20 +246,35 @@ void extraButtons(bool leanLeft) {
 	}
 }
 
-fix32 rightPad(bool isRight) {
-	fix32 current = 0.0;
+fix32 getSwipeDifference() {
+	if (event_active(BUTTON_20)) {
+		trackBuf_cont = get_actual(POINT_2_X);
+		//printf("%.1f", trackBuf_cont);
+	}
+	if (event_release(BUTTON_20)) {
+		set_val(POINT_2_X, get_prev(POINT_2_X));
+		trackBuf_release = get_prev(POINT_2_X);
+		trackBuf_diff = trackBuf_cont - trackBuf_release;
+	}
+	return(trackBuf_diff);
+}
 
+fix32 rightPad(bool isRight) {
+	fix32 current, deltaStick = 0.0;
 	if (isRight) {
 		//get current position and save
 		current = get_actual(POINT_2_X);
-		fix32 deltaStick = current - trackBuf;
+//		deltaStick = current - trackBuf;
 		//printf("Current: %f", current);
 		//printf("Track: %f", trackBuf);
-		printf("%f", deltaStick);
+		if((deltaStick > 1.0) || (deltaStick < -1.0)) {
+			printf("%f", deltaStick * 50.0);
+		}
 		//compare current with previous
-		set_val(STICK_1_X, deltaStick * 100.0);
 	}
 	//listen for event_release
 	//slowly reset current position to zero
+	set_val(STICK_1_X, 5.0);
+	set_val(STICK_1_Y, 0.0);
 	return(current) ;
 }
