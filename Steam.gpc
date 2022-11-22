@@ -24,6 +24,9 @@
 #define DEADZONE_Y			0.0
 
 #define TOUCHTHRESH			45.0
+#define DECAY						0.1
+#define SWIPESCALE			0.9
+#define POLLINGNO				14
 
 #define DEADZONE_L_X		6.6
 #define DEADZONE_L_Y    	6.6
@@ -47,7 +50,7 @@ bool rightPress;
 uint8 status_a, status_b, protocol_a, protocol_b, device_a, device_b;
 uint8 seg = 0;
 
-fix32 trackBuf_cont, trackBuf_release, trackBuf_diff;
+fix32 trackBuf_strt, trackBuf_new, trackBuf_release, trackBuf_diff;
 
 uint8 segDis () {
 	status_a = port_status(PORT_USB_A, &protocol_a, &device_a);
@@ -73,27 +76,13 @@ uint8 segDisRepeat (uint8 i) {
 	return(noController[i]);
 }
 
-/*
-const uint8 SteamNintendo[43] = {
-    RMP_USB_A, 
-    BUTTON_1,  BUTTON_2,  BUTTON_3,  BUTTON_14, BUTTON_15, BUTTON_6,  BUTTON_7, 
-    BUTTON_8,  BUTTON_9,  BUTTON_10, BUTTON_11, BUTTON_12, BUTTON_13, BUTTON_5, 
-    BUTTON_17, BUTTON_16, BUTTON_4,  BUTTON_18, BUTTON_19, BUTTON_20, BUTTON_21, 
-    STICK_1_X, STICK_1_Y, STICK_2_X, STICK_2_Y, 
-    STICK_2_X, STICK_2_Y, POINT_2_X, POINT_2_Y, 
-    ACCEL_1_X, ACCEL_1_Y, ACCEL_1_Z, ACCEL_2_X, ACCEL_2_Y, ACCEL_2_Z, 
-    GYRO_1_X,  GYRO_1_Y,  GYRO_1_Z,
-    BUTTON_15,  BUTTON_16,  PADDLE_3,  PADDLE_4
-};
- */
-
 init {
-//	remapper(SteamNintendo);
 //	device_poweroff();
 	display_overlay(segDis(), SEGTIME);
-	trackBuf_cont =  0.0;
+	trackBuf_strt =  0.0;
 	trackBuf_release =  0.0;
-	trackBuf_diff =  trackBuf_cont - trackBuf_release;
+	trackBuf_new =  0.0;
+	trackBuf_diff =  trackBuf_release - trackBuf_strt;
 }
 
 
@@ -107,20 +96,20 @@ main {
 	}
 	//is left pad being touched?
 	leftPress = isLeftPress();
+		//rightPress = isRightPress();	
 	//least required touch distance for maximum output
 	fixLeftTrackpad(leftPress);
-	rightPress = isRightPress();	
 //	use right pad to swipe and turn
-//	trackBuf = rightPad(rightPress);
 	trackBuf_diff = getSwipeDifference();
+	set_val(STICK_1_X, trackBuf_diff);
+	if(is_release(BUTTON_20)){
+//if(is_release(BUTTON_20) && (mod((fix32)system_time(), (fix32)POLLINGNO) == 0.0)) {		
+		trackBuf_diff = (trackBuf_diff > 0.0) ? trackBuf_diff - DECAY : trackBuf_diff + DECAY;
+	}
+	//left track pad overrides stick
 	//Steam gyro is 1/2 Switch's
 	buffGyro();
-	if(get_actual(ACCEL_1_X) < leftLeanPoint) {
-		leanLeft = TRUE;
-	} else {
-		leanLeft = FALSE;
-	}
-//	leanLeft = (get_val(ACCEL_1_X < leftLeanPoint)) ? TRUE : FALSE;
+	leanLeft = (get_val(ACCEL_1_X) < leftLeanPoint) ? TRUE : FALSE;
 	extraButtons(leanLeft);
 }
 
@@ -227,7 +216,7 @@ void buffGyro(){
 }
 
 void extraButtons(bool leanLeft) {
-	//left Paddle is Accpet
+	//left Paddle is Accept
 	if(get_val(PADDLE_1)){
 		set_val(BUTTON_15, 100.0);
 	}
@@ -248,33 +237,22 @@ void extraButtons(bool leanLeft) {
 
 fix32 getSwipeDifference() {
 	if (event_active(BUTTON_20)) {
-		trackBuf_cont = get_actual(POINT_2_X);
-		//printf("%.1f", trackBuf_cont);
+		trackBuf_strt = get_actual(POINT_2_X);
+		printf("test");
+		return(0.0);
 	}
+	/*
+	if(check_active(BUTTON_20, POLLINGNO)) {
+		trackBuf_strt = get_prev(POINT_2_X);
+		trackBuf_new = get_actual(POINT_2_X);
+		trackBuf_diff = (trackBuf_new - trackBuf_strt) * SWIPESCALE;
+		printf("%.1f", trackBuf_diff);
+	}
+	*/
 	if (event_release(BUTTON_20)) {
-		set_val(POINT_2_X, get_prev(POINT_2_X));
 		trackBuf_release = get_prev(POINT_2_X);
-		trackBuf_diff = trackBuf_cont - trackBuf_release;
+		trackBuf_diff = (trackBuf_release - trackBuf_strt) * SWIPESCALE;
+		printf("release");
 	}
-	return(trackBuf_diff);
-}
-
-fix32 rightPad(bool isRight) {
-	fix32 current, deltaStick = 0.0;
-	if (isRight) {
-		//get current position and save
-		current = get_actual(POINT_2_X);
-//		deltaStick = current - trackBuf;
-		//printf("Current: %f", current);
-		//printf("Track: %f", trackBuf);
-		if((deltaStick > 1.0) || (deltaStick < -1.0)) {
-			printf("%f", deltaStick * 50.0);
-		}
-		//compare current with previous
-	}
-	//listen for event_release
-	//slowly reset current position to zero
-	set_val(STICK_1_X, 5.0);
-	set_val(STICK_1_Y, 0.0);
-	return(current) ;
+	return(clamp(trackBuf_diff, -100.0, 100.0));
 }
