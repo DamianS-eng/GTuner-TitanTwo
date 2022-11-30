@@ -5,17 +5,21 @@ GPC Scripts for the GTuner TitanTwo
 
 The Steam controller can normally be recognized by the TitanTwo, but some modifications to the touchpads and gyro need to be made for optimal control.
 
+![Steam Controller](https://www.consoletuner.com/wiki/lib/exe/fetch.php?media=t2:usage_guides:controllers:steamcontroller.png) ![Switch Pro](https://www.consoletuner.com/wiki/lib/exe/fetch.php?media=t2:usage_guides:controllers:switchprojoycons.png)
+
 ### Device Configuration
 
 Refer to GTuner's guide for details: [Nintendo Switch Guide on ConsoleTuner](https://www.consoletuner.com/wiki/index.php?id=t2:usage_guides:systems:switch)
 
-![Device Configuration](https://github.com/DamianS-eng/GTuner-TitanTwo/blob/main/TitanTwoDeviceConfiguration.png)
+![Device Configuration](https://github.com/DamianS-eng/GTuner-TitanTwo/blob/main/TitanTwoDeviceConfiguration.png) ![Steam Controller Input](SteamControllerInput.png) ![Switch Output](SwitchConsoleOutput.png)
 
 Edit the input polling rate. The Steam Controller's polling rate is 6ms, so the TitanTwo needs to compensate to give its best performance.
 
 Adjust output protocol and polling rate. The expected polling rate of USB Switch controllers is 8ms.
 
-**!** Make sure that Wired USB Communication is enabled in the Switch System Settings before plugging the TitanTwo into the console.
+*! Make sure that Wired USB Communication is enabled in the Switch System Settings before plugging the TitanTwo into the console. *
+
+![Enable Wired Communication Settings](https://www.lifewire.com/thmb/VSjLSCxSAzcyu2bG_UopT6tDofo=/750x0/filters:no_upscale():max_bytes(150000):strip_icc():format(webp)/002-how-to-connect-ps4-xbox-controllers-to-switch-4707374-aee6b470c9ca457e8b67356e0fcf1bc1.jpg)
 
 ### Import the Script
 
