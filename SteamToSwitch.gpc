@@ -11,6 +11,8 @@
 #pragma METAINFO("Steam Controller", 1, 0, "DaMu")
 //#include <remapper.gph> 
 #include <display.gph>
+#include <switch.gph>
+#include <steam.gph>
 
 #define SEGTIME				1500
 #define SEGMAX				5
@@ -101,156 +103,126 @@ main {
 	fixLeftTrackpad(leftPress);
 //	use right pad to swipe and turn
 	trackBuf_diff = getSwipeDifference();
-	set_val(STICK_1_X, trackBuf_diff);
-	if(is_release(BUTTON_20)){
-//if(is_release(BUTTON_20) && (mod((fix32)system_time(), (fix32)POLLINGNO) == 0.0)) {		
+	set_val(SWITCH_RX, trackBuf_diff);
+	if(is_release(STEAM_TOUCHR)){
+//if(is_release(STEAM_TOUCHR) && (mod((fix32)system_time(), (fix32)POLLINGNO) == 0.0)) {		
 		trackBuf_diff = (trackBuf_diff > 0.0) ? trackBuf_diff - DECAY : trackBuf_diff + DECAY;
 	}
 	//left track pad overrides stick
 	//Steam gyro is 1/2 Switch's
 	buffGyro();
-	leanLeft = (get_val(ACCEL_1_X) < leftLeanPoint) ? TRUE : FALSE;
+	leanLeft = (get_val(STEAM_ACCX) < leftLeanPoint) ? TRUE : FALSE;
 	extraButtons(leanLeft);
 }
 
 //If touching left pad, move left stick. Reset to center on release.
 bool isLeftPress(){
-	if (get_actual(BUTTON_19) > TOUCHTHRESH){
+	if (get_actual(STEAM_TOUCHL) > TOUCHTHRESH){
 		//ffb_set(FFB_1, 50.0, 5);
 		return(TRUE);
 	}
 	else{
 		//ffb_reset();
-		set_val(STICK_2_X, 0);
-		set_val(STICK_2_Y, 0);
+		set_val(SWITCH_LX, 0);
+		set_val(SWITCH_LY, 0);
 	}
 	return(FALSE);
 }
 
 bool isRightPress(){
-	if (get_val(BUTTON_20)){
+	if (get_val(STEAM_TOUCHR)){
 //	ffb_set(FFB_2, 50.0, 5);
 		return(TRUE);
 	}
 /*
 //Not touching right pad resets right stick output.
 		ffb_reset();
-		set_val(STICK_1_X, 0);
-		set_val(STICK_1_Y, 0);
+		set_val(SWITCH_RX, 0);
+		set_val(SWITCH_RY, 0);
 	}
 */
 	return(FALSE);
 }
 
-/*
-void outDeadZone(bool isLeft) {
-	if (isLeft) {
-		if(get_actual(POINT_1_X) > DEADZONE_L_X) {
-			set_val(STICK_2_X, clamp(get_actual(POINT_1_X)*SCALE, MINLEFT_X, 100.0));
-			if(get_actual(POINT_1_X) > OUTDEAD_L_X) {
-				set_val(STICK_2_X, 100.0);
-			}			
-		}
-		if(get_actual(POINT_1_Y) > DEADZONE_L_Y) {
-			set_val(STICK_2_Y, clamp(get_actual(POINT_1_Y)*SCALE, MINLEFT_Y, 100.0));
-			if(get_actual(POINT_1_Y) > OUTDEAD_L_Y) {
-				set_val(STICK_2_Y, 100.0);
-			}
-		}
-		if(get_actual(POINT_1_X) < inv(DEADZONE_L_X)) {
-			set_val(STICK_2_X, clamp(get_actual(POINT_1_X)*SCALE, -100.0, inv(MINLEFT_X)));
-			if(get_actual(POINT_1_X) < inv(OUTDEAD_L_X)) {
-				set_val(STICK_2_X, -100.0);
-		}
-		}
-		if(get_actual(POINT_1_Y) < inv(DEADZONE_L_Y)) {
-			set_val(STICK_2_Y, clamp(get_actual(POINT_1_Y)*SCALE, -100.0, inv(MINLEFT_Y)));
-			if(get_actual(POINT_1_Y) < inv(OUTDEAD_L_Y)) {
-				set_val(STICK_2_Y, -100.0);
-			}
-		}
-	}
-}
-*/
 void fixLeftTrackpad(bool left){
 	fix32 potential;
 	if (left){
-		if((get_actual(POINT_1_X) > RADIAL_DEADZONE_L) || (get_actual(POINT_1_X) < inv(RADIAL_DEADZONE_L)) ) {
+		if((get_actual(STEAM_TOUCH_LX) > RADIAL_DEADZONE_L) || (get_actual(STEAM_TOUCH_LX) < inv(RADIAL_DEADZONE_L)) ) {
 			fix32 solvex;
-			if((get_actual(POINT_1_Y) < DEADZONE_L_Y) || (get_actual(POINT_1_Y) > inv(DEADZONE_L_Y))) {
+			if((get_actual(STEAM_TOUCH_LY) < DEADZONE_L_Y) || (get_actual(STEAM_TOUCH_LY) > inv(DEADZONE_L_Y))) {
 				//ignore Y if there is no Y input
-				if(get_actual(POINT_1_X) < 0.0) {
-					solvex = max(-100.0, (fix32)((get_actual(POINT_1_X) + DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
+				if(get_actual(STEAM_TOUCH_LX) < 0.0) {
+					solvex = max(-100.0, (fix32)((get_actual(STEAM_TOUCH_LX) + DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
 				}
-				if(get_actual(POINT_1_X) > 0.0) {
-					solvex = min(100.0, (fix32)((get_actual(POINT_1_X) - DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
+				if(get_actual(STEAM_TOUCH_LX) > 0.0) {
+					solvex = min(100.0, (fix32)((get_actual(STEAM_TOUCH_LX) - DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
 				}
 			} else {
-					potential = 100.0 * sqrt(pow(get_actual(POINT_1_X),2.0) + pow(get_actual(POINT_1_Y),2.0)) / (OUTDEAD_L_X - DEADZONE_L_X);
-					solvex = cos(atan2(get_actual(POINT_1_Y), get_actual(POINT_1_X))) * potential;
+					potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (OUTDEAD_L_X - DEADZONE_L_X);
+					solvex = cos(atan2(get_actual(STEAM_TOUCH_LY), get_actual(STEAM_TOUCH_LX))) * potential;
 			}
-			set_val(STICK_2_X, solvex);
+			set_val(SWITCH_LX, solvex);
 		}
-		if((get_actual(POINT_1_Y) > RADIAL_DEADZONE_L) || (get_actual(POINT_1_Y) < inv(RADIAL_DEADZONE_L)) ) {
+		if((get_actual(STEAM_TOUCH_LY) > RADIAL_DEADZONE_L) || (get_actual(STEAM_TOUCH_LY) < inv(RADIAL_DEADZONE_L)) ) {
 			fix32 solvey;
-			if((get_actual(POINT_1_X) < DEADZONE_L_X) || (get_actual(POINT_1_X) > inv(DEADZONE_L_X))) {
+			if((get_actual(STEAM_TOUCH_LX) < DEADZONE_L_X) || (get_actual(STEAM_TOUCH_LX) > inv(DEADZONE_L_X))) {
 				//ignore X if there is no X input
-				if(get_actual(POINT_1_Y) < 0.0) {
-					solvey = max(-100.0, (fix32)((get_actual(POINT_1_Y) + DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
+				if(get_actual(STEAM_TOUCH_LY) < 0.0) {
+					solvey = max(-100.0, (fix32)((get_actual(STEAM_TOUCH_LY) + DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
 				}
 				else {
-					solvey = min(100.0, (fix32)((get_actual(POINT_1_Y) - DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
+					solvey = min(100.0, (fix32)((get_actual(STEAM_TOUCH_LY) - DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
 				}
 			} else {
-				potential = 100.0 * sqrt(pow(get_actual(POINT_1_X),2.0) + pow(get_actual(POINT_1_Y),2.0)) / (OUTDEAD_L_Y - DEADZONE_L_Y);
-				solvey = sin(atan2(get_actual(POINT_1_Y), get_actual(POINT_1_X))) * potential;
+				potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (OUTDEAD_L_Y - DEADZONE_L_Y);
+				solvey = sin(atan2(get_actual(STEAM_TOUCH_LY), get_actual(STEAM_TOUCH_LX))) * potential;
 			}
-			set_val(STICK_2_Y, solvey);
+			set_val(SWITCH_LY, solvey);
 		}
 	}
 }
 
 void buffGyro(){
-	set_val(GYRO_1_Z, get_val(GYRO_1_Z) * gyroMultiply);
-	set_val(GYRO_1_Y, get_val(GYRO_1_Y) * gyroMultiply);
+	set_val(SWITCH_GYROZ, get_val(STEAM_GYROZ) * gyroMultiply);
+	set_val(SWITCH_GYROY, get_val(STEAM_GYROY) * gyroMultiply);
 }
 
 void extraButtons(bool leanLeft) {
 	//left Paddle is Accept
-	if(get_val(PADDLE_1)){
+	if(get_val(STEAM_PADDLE_L)){
 		set_val(BUTTON_15, 100.0);
 	}
 	//right Paddle is Jump
-	if(get_val(PADDLE_2)){
+	if(get_val(STEAM_PADDLE_R)){
 		set_val(BUTTON_16, 100.0);
 	}
 	//right Pad is Jump
-	if(get_val(BUTTON_6)){
-		set_val(BUTTON_6, 0.0);
-		set_val(BUTTON_16, 100.0);
+	if(get_val(STEAM_RTP)){
+		set_val(SWITCH_RS, 0.0);
+		set_val(SWITCH_B, 100.0);
 	}
-	if(get_val(BUTTON_9) && !leanLeft) {
-			set_val(BUTTON_9, 0.0);
-			set_val(BUTTON_6, 100.0);
+	if(get_val(STEAM_STICK_CLICK) && !leanLeft) {
+			set_val(SWITCH_LS, 0.0);
+			set_val(SWITCH_RS, 100.0);
 	}
 }
 
 fix32 getSwipeDifference() {
-	if (event_active(BUTTON_20)) {
-		trackBuf_strt = get_actual(POINT_2_X);
+	if (event_active(STEAM_TOUCHR)) {
+		trackBuf_strt = get_actual(STEAM_TOUCH_RX);
 		printf("test");
 		return(0.0);
 	}
 	/*
-	if(check_active(BUTTON_20, POLLINGNO)) {
-		trackBuf_strt = get_prev(POINT_2_X);
-		trackBuf_new = get_actual(POINT_2_X);
+	if(check_active(STEAM_TOUCHR, POLLINGNO)) {
+		trackBuf_strt = get_prev(STEAM_TOUCH_RX);
+		trackBuf_new = get_actual(STEAM_TOUCH_RX);
 		trackBuf_diff = (trackBuf_new - trackBuf_strt) * SWIPESCALE;
 		printf("%.1f", trackBuf_diff);
 	}
 	*/
-	if (event_release(BUTTON_20)) {
-		trackBuf_release = get_prev(POINT_2_X);
+	if (event_release(STEAM_TOUCHR)) {
+		trackBuf_release = get_prev(STEAM_TOUCH_RX);
 		trackBuf_diff = (trackBuf_release - trackBuf_strt) * SWIPESCALE;
 		printf("release");
 	}
