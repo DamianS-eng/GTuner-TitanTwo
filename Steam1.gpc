@@ -1,0 +1,46 @@
+#ifndef STEAM_GPH_
+#define STEAM_GPH_
+ 
+#define STEAM_HOME         BUTTON_1
+#define STEAM_TOUCH        BUTTON_2
+#define STEAM_START  	   BUTTON_3
+#define STEAM_R            BUTTON_4
+#define STEAM_RT           BUTTON_5
+#define STEAM_RTP          BUTTON_6
+#define STEAM_L            BUTTON_7
+#define STEAM_LT           BUTTON_8
+#define STEAM_STICK_CLICK  BUTTON_9
+#define STEAM_UP           BUTTON_10
+#define STEAM_DOWN         BUTTON_11
+#define STEAM_LEFT         BUTTON_12
+#define STEAM_RIGHT        BUTTON_13
+#define STEAM_Y			   BUTTON_14
+#define STEAM_B		       BUTTON_15
+#define STEAM_A 	       BUTTON_16
+#define STEAM_X		       BUTTON_17
+#define STEAM_BACK         BUTTON_18
+#define STEAM_TOUCHL       BUTTON_19
+#define STEAM_TOUCHR       BUTTON_20
+ 
+#define STEAM_RIGHTX       STICK_1_X
+#define STEAM_RIGHTY       STICK_1_Y
+#define STEAM_STICKX       STICK_2_X
+#define STEAM_STICKY       STICK_2_Y
+ 
+#define STEAM_TOUCH_LX     POINT_1_X
+#define STEAM_TOUCH_LY     POINT_1_Y
+#define STEAM_TOUCH_RX     POINT_2_X
+#define STEAM_TOUCH_RY     POINT_2_Y
+
+#define STEAM_ACCX         ACCEL_1_X
+#define STEAM_ACCY         ACCEL_1_Y
+#define STEAM_ACCZ         ACCEL_1_Z
+ 
+#define STEAM_GYROX        GYRO_1_X
+#define STEAM_GYROY        GYRO_1_Y
+#define STEAM_GYROZ        GYRO_1_Z
+
+#define STEAM_PADDLE_L	   PADDLE_1
+#define STEAM_PADDLE_R	   PADDLE_2
+ 
+#endif /* STEAM_GPH_ */
