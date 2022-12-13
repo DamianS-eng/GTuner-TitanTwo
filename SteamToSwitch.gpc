@@ -1,11 +1,5 @@
 /*
 	Before using on Switch, make sure wired USB connection is enabled in System Settings.
-	TO DO
-	There is a slight degree tilt of 20 degrees when in a max cardinal direction on left trackpad. Make a rotation function to adjusut.
-	Trackpad deadzone and outer limit do not match stick's. Use a trig function to properly map them back to one:one.
-	Simplify button remaps.
-	
-	For OUTDEAD defines, choose the smallest value that the touchpads can read out of all diagonal directions.
 */
 
 #pragma METAINFO("Steam Controller Switch", 1, 0, "DaMu")
