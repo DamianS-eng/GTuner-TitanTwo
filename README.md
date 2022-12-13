@@ -25,7 +25,8 @@ Adjust output protocol and polling rate. The expected polling rate of USB Switch
 
 1. Connect the TitanTwo from the PROG slot with a Micro USB cable to a computer with [GTunerIV IDE](https://www.consoletuner.com/titan-two-downloads/) installed and running.
 
-2. Download the supplied [steam.gpc](https://github.com/DamianS-eng/GTuner-TitanTwo/blob/main/Steam.gpc) file.
+2. Download the supplied [steam.gph](https://github.com/DamianS-eng/GTuner-TitanTwo/blob/main/Steam.gph) header file, and save it in the include folder of the Gtuner installation.
+Download the supplied steamtoSwitch.gpc file. [steamToSwitch.gpc](https://github.com/DamianS-eng/GTuner-TitanTwo/blob/main/SteamToSwitch.gpc)
 
 3. Open and compile the script in GTunerIV. This is the chance to find anything wrong with the script, or adjust the configuration details.
 
