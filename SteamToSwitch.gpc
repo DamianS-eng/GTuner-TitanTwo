@@ -8,7 +8,7 @@
 	For OUTDEAD defines, choose the smallest value that the touchpads can read out of all diagonal directions.
 */
 
-#pragma METAINFO("Steam Controller", 1, 0, "DaMu")
+#pragma METAINFO("Steam Controller Switch", 1, 0, "DaMu")
 //#include <remapper.gph> 
 #include <display.gph>
 #include <switch.gph>
@@ -17,18 +17,13 @@
 #define SEGTIME				1500
 #define SEGMAX				5
 
-#define SENSITIVITY_X		5.0
-#define SENSITIVITY_Y		5.0
-
 #define DELTATIME			16.0
 
-#define DEADZONE_X			0.0
-#define DEADZONE_Y			0.0
-
 #define TOUCHTHRESH			45.0
-#define DECAY						0.1
-#define SWIPESCALE			0.9
-#define POLLINGNO				14
+#define DECAY						0.05
+#define SWIPESCALE			1.0
+#define POLLINGNO				215
+#define SWIPEDECAY			TRUE
 
 #define DEADZONE_L_X		6.6
 #define DEADZONE_L_Y    	6.6
@@ -52,7 +47,7 @@ bool rightPress;
 uint8 status_a, status_b, protocol_a, protocol_b, device_a, device_b;
 uint8 seg = 0;
 
-fix32 trackBuf_strt, trackBuf_new, trackBuf_release, trackBuf_diff;
+fix32 trackBuf_strt, trackBuf_new, trackBuf_release, trackBuf_diff, rightTimePress;
 
 uint8 segDis () {
 	status_a = port_status(PORT_USB_A, &protocol_a, &device_a);
@@ -84,6 +79,7 @@ init {
 	trackBuf_strt =  0.0;
 	trackBuf_release =  0.0;
 	trackBuf_new =  0.0;
+	rightTimePress = 0.0;
 	trackBuf_diff =  trackBuf_release - trackBuf_strt;
 }
 
@@ -96,20 +92,22 @@ main {
 			seg = 0;
 		}
 	}
-	//is left pad being touched?
+//is left pad being touched?
 	leftPress = isLeftPress();
 		//rightPress = isRightPress();	
-	//least required touch distance for maximum output
+//least required touch distance for maximum output
 	fixLeftTrackpad(leftPress);
+	//set_val(SWITCH_LX, solvex);
+	//set_val(SWITCH_LY, solvey);
 //	use right pad to swipe and turn
 	trackBuf_diff = getSwipeDifference();
 	set_val(SWITCH_RX, trackBuf_diff);
-	if(is_release(STEAM_TOUCHR)){
-//if(is_release(STEAM_TOUCHR) && (mod((fix32)system_time(), (fix32)POLLINGNO) == 0.0)) {		
+	if(is_release(STEAM_TOUCHR) && SWIPEDECAY){
 		trackBuf_diff = (trackBuf_diff > 0.0) ? trackBuf_diff - DECAY : trackBuf_diff + DECAY;
 	}
-	//left track pad overrides stick
-	//Steam gyro is 1/2 Switch's
+	//set_val(SWITCH_GYROZ, trackBuf_diff);
+//left track pad overrides stick
+//Steam gyro is 1/2 Switch's
 	buffGyro();
 	leanLeft = (get_val(STEAM_ACCX) < leftLeanPoint) ? TRUE : FALSE;
 	extraButtons(leanLeft);
@@ -190,11 +188,11 @@ void buffGyro(){
 void extraButtons(bool leanLeft) {
 	//left Paddle is Accept
 	if(get_val(STEAM_PADDLE_L)){
-		set_val(BUTTON_15, 100.0);
+		set_val(SWITCH_A, 100.0);
 	}
 	//right Paddle is Jump
 	if(get_val(STEAM_PADDLE_R)){
-		set_val(BUTTON_16, 100.0);
+		set_val(SWITCH_B, 100.0);
 	}
 	//right Pad is Jump
 	if(get_val(STEAM_RTP)){
@@ -211,20 +209,28 @@ fix32 getSwipeDifference() {
 	if (event_active(STEAM_TOUCHR)) {
 		trackBuf_strt = get_actual(STEAM_TOUCH_RX);
 		printf("test");
+		rightTimePress = 0.0;
 		return(0.0);
 	}
-	/*
-	if(check_active(STEAM_TOUCHR, POLLINGNO)) {
-		trackBuf_strt = get_prev(STEAM_TOUCH_RX);
+	
+	if(is_active(STEAM_TOUCHR)) {
 		trackBuf_new = get_actual(STEAM_TOUCH_RX);
+		rightTimePress+= 1.0;
+		if (mod(rightTimePress, (fix32)POLLINGNO) == 0.0) {
+			trackBuf_strt = get_prev(STEAM_TOUCH_RX);
+			printf("%.1f: %.1f - %.1f", rightTimePress, trackBuf_new, trackBuf_strt);
+		}
 		trackBuf_diff = (trackBuf_new - trackBuf_strt) * SWIPESCALE;
-		printf("%.1f", trackBuf_diff);
 	}
-	*/
+	
 	if (event_release(STEAM_TOUCHR)) {
 		trackBuf_release = get_prev(STEAM_TOUCH_RX);
 		trackBuf_diff = (trackBuf_release - trackBuf_strt) * SWIPESCALE;
 		printf("release");
 	}
 	return(clamp(trackBuf_diff, -100.0, 100.0));
+}
+
+fix32 trackpadToGyro() {
+	return(trackBuf_diff);
 }
