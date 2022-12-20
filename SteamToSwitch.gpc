@@ -19,27 +19,27 @@
 #define DELTATIME			16.0
 
 #define TOUCHTHRESH			45.0
-#define DECAY						0.05
+#define DECAY				0.05
 #define SWIPESCALE			0.84
-#define POLLINGNO				215
+#define POLLINGNO			215
 
 #define SWIPEDECAY			TRUE
 #define SWIPETRACK			TRUE
-#define REQUIRETOUCHGYRO	FALSE
-#define ADAPTIVEJOYSTICK TRUE
+#define REQUIRETOUCHGYRO		FALSE
+#define ADAPTIVEJOYSTICK 		TRUE
 
-#define DEADZONE_L_X		6.6
-#define DEADZONE_L_Y    	6.6
-#define RADIAL_DEADZONE_L  5.6
-#define DEADZONE_R_X    	30.0
-#define DEADZONE_R_Y    	30.0
+#define DEADZONE_L_X			6.6
+#define DEADZONE_L_Y    		6.6
+#define RADIAL_DEADZONE_L  		5.6
+#define DEADZONE_R_X    		30.0
+#define DEADZONE_R_Y    		30.0
 #define DEADZONE_D			1.0
 #define MINLEFT_X			15.0
 #define MINLEFT_Y			15.0
 #define OUTDEAD_L_X			57.5
 #define OUTDEAD_L_Y			57.5
-#define gyroMultiply		2.0
-#define leftLeanPoint		-18.0
+#define gyroMultiply			2.0
+#define leftLeanPoint			-18.0
 
  
 bool leftPress;
@@ -97,12 +97,11 @@ main {
 	}
 //is left pad being touched?
 	leftPress = isLeftPress();
-		//	
 //least required touch distance for maximum output
 	fixLeftTrackpad(leftPress);
 	//set_val(SWITCH_LX, solvex);
 	//set_val(SWITCH_LY, solvey);
-//	use right pad to swipe and turn
+//use right pad to swipe and turn
 	if(ADAPTIVEJOYSTICK) {
 		trackBuf_diff = getAdaptiveStick();
 	} else {
