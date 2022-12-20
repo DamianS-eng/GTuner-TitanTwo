@@ -2,7 +2,7 @@
 #define STEAM_GPH_
  
 #define STEAM_HOME         BUTTON_1
-#define STEAM_TOUCH        BUTTON_2
+#define STEAM_BACK         BUTTON_2
 #define STEAM_START        BUTTON_3
 #define STEAM_R            BUTTON_4
 #define STEAM_RT           BUTTON_5
@@ -18,7 +18,7 @@
 #define STEAM_B            BUTTON_15
 #define STEAM_A            BUTTON_16
 #define STEAM_X            BUTTON_17
-#define STEAM_BACK         BUTTON_18
+#define STEAM_CAPTURE      BUTTON_18
 #define STEAM_TOUCHL       BUTTON_19
 #define STEAM_TOUCHR       BUTTON_20
  
