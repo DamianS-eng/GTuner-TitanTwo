@@ -3,31 +3,191 @@
 	TO DO
 
 	Enable REQUIRETOUCHGYRO by using TRUE to only broadcast gyro if the pad is touched.
-	ADAPTIVEJOYSTICK is a way to send stick output from anywhere on the pad, instead of its absolute position.
+	ADAPTIVECENTERING is a way to send stick output from anywhere on the pad, instead of its absolute position.
 	For OUTDEAD defines, choose the smallest value that the touchpads can read out of all diagonal directions.
 */
 
-#pragma METAINFO("Steam Controller Switch", 1, 0, "DaMu")
+#pragma METAINFO("Steam Controller Switch", 1, 01, "DaMu")
 /*
 <cfgdesc>
-[unique section name]
-control = value
-shortdesc = description
-byteoffset = value
-bitsize = value
-bitoffset = value
-default = value
-item = value
+[Gyro]
+group = FALSE
+groupcol = FALSE
+control = checkbox
+color = #0033FF
+collapsible = 1
+shortdesc = Similar to using gyro enable on Steam Controller and Steam Deck, sense the finger on the pad to enable gyro.
+byteoffset = 0
+bitsize = 8
+default = 0
+item = Require Touch for Gyro
 minimum = value
 maximum = value
 step = value
+
+[Gyro Sensitivity]
+group = TRUE
+groupcol = FALSE
+control = dial
+color = #0033FF
+collapsible = 1
+shortdesc = Scale the Steam Controller's gyro sensitivity to output.
+byteoffset = 4
+bitsize = 8
+default = 2
+item = Gyro Sensitivity
+minimum = -10
+maximum = 10
+step = 1
+
+[Right Stick Output]
+group = FALSE
+control = checkbox
+color = #0022DD
+collapsible = 1
+shortdesc = When first touching the pad, that point is the center of the stick. Disable for absolute touch position determines the immediate stick deflection.
+byteoffset = 3
+item = Adaptive Centering
+bitsize = 8
+default = 1
+
+[Lean Bindings]
+group = FALSE
+groupcol = FALSE
+control = slider
+color = #22CC11
+collapsible = 1
+shortdesc = How far should you tilt to activate other buttons? Negative for left, positive for right.
+byteoffset = 5
+bitsize = 8
+default = -18
+item = Gyro Sensitivity
+minimum = -24
+maximum = 24
+step = 1
+
+[Swipe Pad - NOT IMPLEMENTED]
+group = FALSE
+control = info
+collapsible = 2
+border = 1
+shortdesc = These are settings meant to modify the behavior of the trackpad with respect to analog output. This section is not being used now. 
+default = 0
+
+[Swipes]
+group = TRUE
+control = checkbox
+color = #FF00DD
+collapsible = 2
+shortdesc = When the pad is released from touch after a swipe, should the output value gradually wane to center over time?
+byteoffset = 1
+item = Swipe Decay
+bitsize = 8
+default = 0
+
+[Swipe Track]
+group = TRUE
+control = checkbox
+color = #FF00DD
+collapsible = 2
+shortdesc = Should swipes be used to control camera? When not swiping, the output will reset to center.
+byteoffset = 2
+item = Swipe Track
+bitsize = 8
+default = 0
+
+[LED Segment]
+group = FALSE
+groupcol = FALSE
+control = dial
+color = #CCAA66
+collapsible = 1
+shortdesc = How long should it take for the LED display to cycle between letters? Less for faster, more for slower.
+byteoffset = 6
+bitsize = 16
+default = 1500
+item = LED Segment Time
+minimum = 200
+maximum = 8000
+step = 10
+
+[Deadzones]
+group = FALSE
+groupcol = FALSE
+control = slider
+color = #BB8833
+shortdesc = Left Deadzone - X-Axis
+byteoffset = 8
+bitsize = 16
+default = 7
+item = Left Deadzone X
+minimum = 1
+maximum = 25
+step = 1
+
+[Deadzones_Y]
+group = TRUE
+groupcol = TRUE
+control = slider
+color = #BB8833
+shortdesc = Left Deadzone - Y-Axis
+byteoffset = 10
+bitsize = 16
+default = 7
+item = Left Deadzone Y
+minimum = 1
+maximum = 25
+step = 1
+
+[Radial Deadzone]
+group = TRUE
+groupcol = TRUE
+control = slider
+color = #BB8833
+shortdesc = Left Radial Deadzone
+byteoffset = 12
+bitsize = 16
+default = 6
+item = Left Radial Deadzone
+minimum = 1
+maximum = 25
+step = 1
+
+[OutDeadzones_x]
+group = TRUE
+groupcol = TRUE
+control = slider
+color = #BB8833
+shortdesc = Left Outer Deadzone - X-Axis
+byteoffset = 14
+bitsize = 16
+default = 58
+item = Left Outer Deadzone X
+minimum = 20
+maximum = 80
+step = 1
+
+[OutDeadzones_y]
+group = TRUE
+groupcol = TRUE
+control = slider
+color = #BB8833
+shortdesc = Left Outer Deadzone - Y-Axis
+byteoffset = 16
+bitsize = 16
+default = 58
+item = Left Outer Deadzone Y
+minimum = 20
+maximum = 80
+step = 1
 </cfgdesc>
 */
+//bitoffset = value
+
 #include <display.gph>
 #include <switch.gph>
 #include <steam.gph>
 
-#define SEGTIME				1500
 #define SEGMAX				5
 
 #define DELTATIME			16.0
@@ -36,11 +196,6 @@ step = value
 #define DECAY						0.05
 #define SWIPESCALE			0.84
 #define POLLINGNO				215
-
-#define SWIPEDECAY			TRUE
-#define SWIPETRACK			TRUE
-#define REQUIRETOUCHGYRO	FALSE
-#define ADAPTIVEJOYSTICK TRUE
 
 #define DEADZONE_L_X		6.6
 #define DEADZONE_L_Y    	6.6
@@ -52,18 +207,21 @@ step = value
 #define MINLEFT_Y			15.0
 #define OUTDEAD_L_X			57.5
 #define OUTDEAD_L_Y			57.5
-#define gyroMultiply		2.0
-#define leftLeanPoint		-18.0
 
- 
-bool leftPress;
-//lean left to click Left Stick. LSC defaults to Right Stick Click.
-bool leanLeft;
-bool rightPress;
+// 1 byte == 8bits
+bool leftPress, rightPress;
+bool requiretouchgyro, swipedecay, swipetrack, adaptivecentering;
 
 uint8 status_a, status_b, protocol_a, protocol_b, device_a, device_b;
 uint8 seg = 0;
 
+int8 gyroMultiply, leanPoint;
+
+// 2 bytes == 16bits
+uint16 segTime, inDeadzone_LX, inDeadzone_LY, inDeadzone_L_Radial;  
+uint16 inOutdead_LX, inOutdead_LY;
+
+fix32 outToGyro, Deadzone_LX, Deadzone_LY, Deadzone_L_Radial, Outdead_LX, Outdead_LY;
 fix32 trackBuf_strt, trackBuf_new, trackBuf_release, trackBuf_diff, rightTimePress;
 
 uint8 segDis () {
@@ -92,19 +250,41 @@ uint8 segDisRepeat (uint8 i) {
 }
 
 init {
-//	device_poweroff();
-	display_overlay(segDis(), SEGTIME);
+
+	display_overlay(segDis(), segTime);
+
 	trackBuf_strt =  0.0;
 	trackBuf_release =  0.0;
 	trackBuf_new =  0.0;
 	rightTimePress = 0.0;
 	trackBuf_diff =  trackBuf_release - trackBuf_strt;
+	
+	pmem_load();
+	pmem_read(0, &requiretouchgyro);
+	pmem_read(1, &swipedecay);
+	pmem_read(2, &swipetrack);
+	pmem_read(3, &adaptivecentering);
+	pmem_read(4, &gyroMultiply);
+	pmem_read(5, &leanPoint);
+	pmem_read(6, &segTime);
+	pmem_read(8, &inDeadzone_LX);
+	pmem_read(10, &inDeadzone_LY);
+	pmem_read(12, &inDeadzone_L_Radial);
+	pmem_read(14, &inOutdead_LX);
+	pmem_read(16, &inOutdead_LY);
+	outToGyro = (gyroMultiply < 0) ? ((fix32)5 / (abs(((fix32)gyroMultiply)) + (fix32)5)): (fix32)gyroMultiply;
+	Deadzone_LX = (fix32)inDeadzone_LX;
+	Deadzone_LY = (fix32)inDeadzone_LY;
+	Deadzone_L_Radial = (fix32)inDeadzone_L_Radial;
+	Outdead_LX = (fix32)inOutdead_LX;
+	Outdead_LY = (fix32)inOutdead_LY;
+	
 }
 
 
 main {
-	if(mod((fix32)system_time(), (fix32)SEGTIME) == 0.0) {
-		display_overlay(segDisRepeat(seg), SEGTIME);
+	if(mod((fix32)system_time(), (fix32)segTime) == 0.0) {
+		display_overlay(segDisRepeat(seg), segTime);
 		seg++;
 		if(seg >= SEGMAX) {
 			seg = 0;
@@ -118,7 +298,7 @@ main {
 	//set_val(SWITCH_LX, solvex);
 	//set_val(SWITCH_LY, solvey);
 //	use right pad to swipe and turn
-	if(ADAPTIVEJOYSTICK) {
+	if(adaptivecentering) {
 		trackBuf_diff = getAdaptiveStick();
 	} else {
 		rightPress = isRightPress();
@@ -128,9 +308,8 @@ main {
 
 //left track pad overrides stick
 //Steam gyro is 1/2 Switch's
-	buffGyro(REQUIRETOUCHGYRO);
-	leanLeft = (get_val(STEAM_ACCX) < leftLeanPoint) ? TRUE : FALSE;
-	extraButtons(leanLeft);
+	buffGyro(requiretouchgyro);
+	extraButtons((get_val(STEAM_ACCX) < (fix32)leanPoint));
 }
 
 //If touching left pad, move left stick. Reset to center on release.
@@ -164,34 +343,34 @@ void SteamLeftStick() {
 void fixLeftTrackpad(bool left){
 	fix32 potential;
 	if (left){
-		if((get_actual(STEAM_TOUCH_LX) > RADIAL_DEADZONE_L) || (get_actual(STEAM_TOUCH_LX) < inv(RADIAL_DEADZONE_L)) ) {
+		if((get_actual(STEAM_TOUCH_LX) > Deadzone_L_Radial) || (get_actual(STEAM_TOUCH_LX) < inv(Deadzone_L_Radial)) ) {
 			fix32 solvex;
-			if((get_actual(STEAM_TOUCH_LY) < DEADZONE_L_Y) || (get_actual(STEAM_TOUCH_LY) > inv(DEADZONE_L_Y))) {
+			if((get_actual(STEAM_TOUCH_LY) < Deadzone_LY) || (get_actual(STEAM_TOUCH_LY) > inv(Deadzone_LY))) {
 				//ignore Y if there is no Y input
 				if(get_actual(STEAM_TOUCH_LX) < 0.0) {
-					solvex = max(-100.0, (fix32)((get_actual(STEAM_TOUCH_LX) + DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
+					solvex = max(-100.0, (fix32)((get_actual(STEAM_TOUCH_LX) + Deadzone_LX) * 100.0 / Outdead_LX));
 				}
 				if(get_actual(STEAM_TOUCH_LX) > 0.0) {
-					solvex = min(100.0, (fix32)((get_actual(STEAM_TOUCH_LX) - DEADZONE_L_X) * 100.0 / OUTDEAD_L_X));
+					solvex = min(100.0, (fix32)((get_actual(STEAM_TOUCH_LX) - Deadzone_LX) * 100.0 / Outdead_LX));
 				}
 			} else {
-					potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (OUTDEAD_L_X - DEADZONE_L_X);
+					potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (Outdead_LX - Deadzone_LX);
 					solvex = cos(atan2(get_actual(STEAM_TOUCH_LY), get_actual(STEAM_TOUCH_LX))) * potential;
 			}
 			set_val(SWITCH_LX, solvex);
 		}
-		if((get_actual(STEAM_TOUCH_LY) > RADIAL_DEADZONE_L) || (get_actual(STEAM_TOUCH_LY) < inv(RADIAL_DEADZONE_L)) ) {
+		if((get_actual(STEAM_TOUCH_LY) > Deadzone_L_Radial) || (get_actual(STEAM_TOUCH_LY) < inv(Deadzone_L_Radial)) ) {
 			fix32 solvey;
-			if((get_actual(STEAM_TOUCH_LX) < DEADZONE_L_X) || (get_actual(STEAM_TOUCH_LX) > inv(DEADZONE_L_X))) {
+			if((get_actual(STEAM_TOUCH_LX) < Deadzone_LX) || (get_actual(STEAM_TOUCH_LX) > inv(Deadzone_LX))) {
 				//ignore X if there is no X input
 				if(get_actual(STEAM_TOUCH_LY) < 0.0) {
-					solvey = max(-100.0, (fix32)((get_actual(STEAM_TOUCH_LY) + DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
+					solvey = max(-100.0, (fix32)((get_actual(STEAM_TOUCH_LY) + Deadzone_LY) * 100.0 / Outdead_LY));
 				}
 				else {
-					solvey = min(100.0, (fix32)((get_actual(STEAM_TOUCH_LY) - DEADZONE_L_Y) * 100.0 / OUTDEAD_L_Y));
+					solvey = min(100.0, (fix32)((get_actual(STEAM_TOUCH_LY) - Deadzone_LY) * 100.0 / Outdead_LY));
 				}
 			} else {
-				potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (OUTDEAD_L_Y - DEADZONE_L_Y);
+				potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (Outdead_LY - Deadzone_LY);
 				solvey = sin(atan2(get_actual(STEAM_TOUCH_LY), get_actual(STEAM_TOUCH_LX))) * potential;
 			}
 			set_val(SWITCH_LY, solvey);
@@ -201,11 +380,14 @@ void fixLeftTrackpad(bool left){
 
 void buffGyro(bool isTouchGyro){
 	if(isTouchGyro){
-		set_val(SWITCH_GYROZ, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_val(STEAM_GYROZ) * gyroMultiply : 0.0);
-		set_val(SWITCH_GYROY, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_val(STEAM_GYROY) * gyroMultiply : 0.0);
+		set_val(SWITCH_GYROZ, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_val(STEAM_GYROZ) * outToGyro : 0.0);
+		set_val(SWITCH_GYROY, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_val(STEAM_GYROY) * outToGyro : 0.0);
+		set_val(SWITCH_GYROX, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_val(STEAM_GYROX) : 0.0);
+		set_val(SWITCH_ACCY,  (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_val(STEAM_ACCY)  : 0.0);
+		set_val(SWITCH_ACCZ, abs(get_val(SWITCH_ACCY)) - 25.0  );
 	} else {
-		set_val(SWITCH_GYROZ, get_val(STEAM_GYROZ) * gyroMultiply);
-		set_val(SWITCH_GYROY, get_val(STEAM_GYROY) * gyroMultiply);
+		set_val(SWITCH_GYROZ, get_val(STEAM_GYROZ) * outToGyro);
+		set_val(SWITCH_GYROY, get_val(STEAM_GYROY) * outToGyro);
 	}
 }
 
