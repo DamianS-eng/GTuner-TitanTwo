@@ -309,7 +309,7 @@ main {
 //left track pad overrides stick
 //Steam gyro is 1/2 Switch's
 	buffGyro(requiretouchgyro);
-	extraButtons((get_val(STEAM_ACCX) < (fix32)leanPoint));
+	extraButtons((get_actual(STEAM_ACCX) < (fix32)leanPoint));
 }
 
 //If touching left pad, move left stick. Reset to center on release.
@@ -323,7 +323,7 @@ bool isLeftPress(){
 }
 
 bool isRightPress(){
-	if (get_val(STEAM_TOUCHR) < TOUCHTHRESH){
+	if (get_actual(STEAM_TOUCHR) < TOUCHTHRESH){
 //Not touching right pad resets right stick output.
 		//ffb_reset();
 		set_val(SWITCH_RX, 0);
@@ -380,38 +380,39 @@ void fixLeftTrackpad(bool left){
 
 void buffGyro(bool isTouchGyro){
 	if(isTouchGyro){
-		set_val(SWITCH_GYROZ, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_val(STEAM_GYROZ) * outToGyro : 0.0);
-		set_val(SWITCH_GYROY, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_val(STEAM_GYROY) * outToGyro : 0.0);
-		set_val(SWITCH_GYROX, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_val(STEAM_GYROX) : 0.0);
-		set_val(SWITCH_ACCY,  (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_val(STEAM_ACCY)  : 0.0);
-		set_val(SWITCH_ACCZ, abs(get_val(SWITCH_ACCY)) - 25.0  );
+		set_val(SWITCH_GYROZ, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_GYROZ) * outToGyro : 0.0);
+		set_val(SWITCH_GYROY, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_GYROY) * outToGyro : 0.0);
+		set_val(SWITCH_GYROX, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_GYROX) : 0.0);
+		set_val(SWITCH_ACCY,  (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_ACCY)  : 0.0);
+		set_val(SWITCH_ACCZ, abs(get_actual(SWITCH_ACCY)) - 25.0  );
 	} else {
-		set_val(SWITCH_GYROZ, get_val(STEAM_GYROZ) * outToGyro);
-		set_val(SWITCH_GYROY, get_val(STEAM_GYROY) * outToGyro);
+		set_val(SWITCH_GYROZ, get_actual(STEAM_GYROZ) * outToGyro);
+		set_val(SWITCH_GYROY, get_actual(STEAM_GYROY) * outToGyro);
 	}
 }
 
 void extraButtons(bool leanLeft) {
-	//left Paddle is Accept
-	if(get_val(STEAM_PADDLE_L)){
-		set_val(SWITCH_A, 100.0);
+	//left Paddle is Specials
+	if(get_actual(STEAM_PADDLE_L)){
+		printf("test");
+		set_val(SWITCH_RS, 100.0);
 	}
 	//right Paddle is Jump
-	if(get_val(STEAM_PADDLE_R)){
+	if(get_actual(STEAM_PADDLE_R)){
 		set_val(SWITCH_B, 100.0);
 	}
 	//right Pad is Jump
-	if(get_val(STEAM_RTP)){
+	if(get_actual(STEAM_RTP)){
 		set_val(SWITCH_RS, 0.0);
 		set_val(SWITCH_B, 100.0);
 	}
 	//when in normal position, Stick Click is Right Stick Click
-	if(get_val(STEAM_STICK_CLICK) && !leanLeft) {
+	if(get_actual(STEAM_STICK_CLICK) && !leanLeft) {
 		set_val(SWITCH_LS, 0.0);
 		set_val(SWITCH_RS, 100.0);
 	}
 	//lean left and press Steam button for Capture
-	if(get_val(STEAM_HOME) && leanLeft) {
+	if(get_actual(STEAM_HOME) && leanLeft) {
 		set_val(SWITCH_HOME, 0.0);
 		set_val(SWITCH_CAPTURE, 100.0);
 	}
