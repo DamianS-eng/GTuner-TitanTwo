@@ -1,6 +1,5 @@
-#pragma METAINFO("Splatoon", 1, 70, "Edited by: alfie65536, Originally Created by: nspl")
- 
- 
+#pragma METAINFO("Mouse to Splatoon", 1, 71, "Edited by: DaMu, Originally Created by: nspl")
+  
 #include <switch.gph>
 #include <mouse.gph>
 #include <keyboard.gph>
@@ -16,61 +15,62 @@ bool e_toggle = FALSE;
 const uint8 kmap[] = { 0xE3, 0x00, 0x29, 0x0F, 0x3A, 0x0D, 0x15, 0x10, 0x3C, 0x02, 0x28, 0x0E, 0x52, 0x09, 0x51, 0x0A, 0x50, 0x0B, 0x4F, 0x0C, 0x1A, 0x98, 0x04, 0x97, 0x16, 0x18, 0x07, 0x17, 0x2C, 0x0F, 0x14, 0x06, 0x08, 0x03, 0x09, 0x05, 0xE1, 0x07, 0x2B, 0x0D, 0x3D, 0x01, 0x35, 0x08, 0x45, 0x11 };
 const uint8 mmap[] = { 0x04, 0x04, 0x05, 0x07, 0x06, 0x03, 0x00, 0x15, 0x01, 0x16 };
 const uint8 mxyc[] = { 0xFF, 0x00, 0x14, 0x00, 0x80, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0xFC, 0x00, 0x05, 0x0A, 0x0F, 0x14, 0x19, 0x1E, 0x23, 0x28, 0x2D, 0x32, 0x37, 0x3C, 0x41, 0x46, 0x4B, 0x50, 0x55, 0x5A, 0x5F, 0x64 };
+// Load an Mouse Mapping to reproduce the default BF1 layout
+const uint8 custom_mmap[] = {
+        MOUSE_X,            STICK_1_X, 
+        MOUSE_Y,            STICK_1_Y, 
+        MWHEEL_FORWARD,     BUTTON_14, 
+        MWHEEL_BACKWARD,    BUTTON_14, 
+        MBUTTON_1,          BUTTON_5,
+        MBUTTON_2,          BUTTON_8,
+};
  
 init {
     keymapping(kmap);
-    mousemapping(mmap);
-    mxyconverter(mxyc);
+    if(!mousemapping(mmap)){
+        printf("Mouse mapping failed!");
+    }
+    if(!mxyconverter(mxyc)){
+        printf("Mouse converter failed!");
+    }
     mmy = DEFAULT_MMY;
 }
  
- 
 main {
-    set_val(SWITCH_ACCZ,0.0 );
-    set_val(SWITCH_ACCY,0.0 );
-    set_val(SWITCH_GYROZ, 0.0 );
-    set_val(SWITCH_GYROY, 0.0 );
-    set_val(SWITCH_GYROX, 0.0 );
     set_val(SWITCH_ACCX, 0.0);
+    set_val(SWITCH_ACCY,0.0 );
+    set_val(SWITCH_ACCZ,0.0 );
+    set_val(SWITCH_GYROX, 0.0 );
+    set_val(SWITCH_GYROY, 0.0 );
+    set_val(SWITCH_GYROZ, 0.0 );
     gyro_aim();
-}
- 
-combo home {
-    set_val(SWITCH_X, 100.0);
-    //wait(50);
-    set_val(SWITCH_DOWN, 100.0);
-    //wait(50);
-    set_val(SWITCH_A, 100.0);
-    //wait(50);
-}
- 
-combo booya {
-    set_val(SWITCH_DOWN, 100.0);
-    wait(70);
-    set_val(SWITCH_DOWN, 0.0);
-    wait(70);
-}
- 
-combo cam_reset {
-    set_val(SWITCH_Y, 100.0);
-    wait(70);
-    set_val(SWITCH_Y, 0.0);
-    wait(70);
-}
- 
-combo quickswim_thr {
-    set_val(SWITCH_ZL, 0.0);
-    set_val(SWITCH_R, 100.0);
-    wait(500);
-}
- 
-combo quickswim_swm {
-    wait(50);
-    set_val(SWITCH_ZL, 100.0);
-    wait(500);
+   
 }
  
 void gyro_aim(){
+    fix32 my = rad2deg(get_val(SWITCH_RY) / 840.0 * PI) / MAXGX;
+    mmy = clamp( mmy + my , -MAXGX , MAXGX );
+    set_val(SWITCH_ACCY, mmy );
+    if( abs(mmy) != MAXGX ){
+        fix32 mybak = rad2deg(get_val(SWITCH_RY) / 440.0 * PI) / (MAXGX - 4.2);
+        set_val(SWITCH_GYROX, mybak * MAXR ); 
+        //set_val(SWITCH_GYROX, my * MAXR );
+    }
+    else {
+        set_val(SWITCH_GYROX,0.0);
+    }    
+ 
+    set_val(SWITCH_ACCZ, abs(get_val(SWITCH_ACCY)) - 25.0  );
+    fix32 gyroz = rad2deg(get_val(SWITCH_RX) / 240.0 * PI) / 45.0 * MAXR;
+    set_val(SWITCH_GYROZ, gyroz * -get_val(SWITCH_ACCZ) / 25.0 );
+    set_val(SWITCH_GYROY, gyroz * -get_val(SWITCH_ACCY) / 25.0 );
+    set_val(SWITCH_ACCX, 0.0 );
+    set_val(SWITCH_RY, 0.0);
+    set_val(SWITCH_RX, 0.0);
+}
+
+
+void shortcutsAndCombos() {
     if(event_active(SWITCH_Y)) {
         y_toggle = !y_toggle;
         mmy = DEFAULT_MMY;
@@ -78,7 +78,7 @@ void gyro_aim(){
     if(y_toggle) {
         set_val(SWITCH_Y, 100.0);
     }
- 
+
     if(key_status(KEY_LEFTCONTROL)) {
         if(get_val(SWITCH_LX) && get_val(SWITCH_LY)) {
             set_val(SWITCH_LX, clamp(get_val(SWITCH_LX), -57.0, 57.0));
@@ -117,26 +117,40 @@ void gyro_aim(){
     }
     else if(!key_status(KEY_P)) {
         e_toggle = FALSE;
-    }
+    } 
+}
+
+combo home {
+    set_val(SWITCH_X, 100.0);
+    //wait(50);
+    set_val(SWITCH_DOWN, 100.0);
+    //wait(50);
+    set_val(SWITCH_A, 100.0);
+    //wait(50);
+}
  
-    fix32 my = rad2deg(get_val(SWITCH_RY) / 840.0 * PI) / MAXGX;
-    mmy = clamp( mmy + my , -MAXGX , MAXGX );
-    set_val(SWITCH_ACCY, mmy );
-    if( abs(mmy) != MAXGX ){
-        fix32 mybak = rad2deg(get_val(SWITCH_RY) / 440.0 * PI) / (MAXGX - 4.2);
-        set_val(SWITCH_GYROX, mybak * MAXR ); 
-        //set_val(SWITCH_GYROX, my * MAXR );
-    }
-    else {
-        set_val(GYRO_1_X,0.0);
-    }    
+combo booya {
+    set_val(SWITCH_DOWN, 100.0);
+    wait(70);
+    set_val(SWITCH_DOWN, 0.0);
+    wait(70);
+}
  
-    set_val(SWITCH_ACCZ, abs(get_val(SWITCH_ACCY)) - 25.0  );
-    fix32 gyroz = rad2deg(get_val(SWITCH_RX) / 240.0 * PI) / 45.0 * MAXR;
-    set_val(SWITCH_GYROZ, gyroz * -get_val(SWITCH_ACCZ) / 25.0 );
-    set_val(SWITCH_GYROY, gyroz * -get_val(SWITCH_ACCY) / 25.0 );
-    set_val(SWITCH_ACCX, 0.0 );
-    set_val(SWITCH_RY, 0.0);
-    set_val(SWITCH_RX, 0.0);
+combo cam_reset {
+    set_val(SWITCH_Y, 100.0);
+    wait(70);
+    set_val(SWITCH_Y, 0.0);
+    wait(70);
+}
  
+combo quickswim_thr {
+    set_val(SWITCH_ZL, 0.0);
+    set_val(SWITCH_R, 100.0);
+    wait(500);
+}
+ 
+combo quickswim_swm {
+    wait(50);
+    set_val(SWITCH_ZL, 100.0);
+    wait(500);
 }
