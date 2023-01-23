@@ -193,13 +193,13 @@ step = 1
 #define DELTATIME			16.0
 
 #define TOUCHTHRESH			45.0
-#define DECAY						0.05
+#define DECAY				0.05
 #define SWIPESCALE			0.84
-#define POLLINGNO				215
+#define POLLINGNO			215
 
 #define DEADZONE_L_X		6.6
 #define DEADZONE_L_Y    	6.6
-#define RADIAL_DEADZONE_L  5.6
+#define RADIAL_DEADZONE_L   5.6
 #define DEADZONE_R_X    	30.0
 #define DEADZONE_R_Y    	30.0
 #define DEADZONE_D			1.0
@@ -223,6 +223,9 @@ uint16 inOutdead_LX, inOutdead_LY;
 
 fix32 outToGyro, Deadzone_LX, Deadzone_LY, Deadzone_L_Radial, Outdead_LX, Outdead_LY;
 fix32 trackBuf_strt, trackBuf_new, trackBuf_release, trackBuf_diff, rightTimePress;
+fix32 trackoutXY[2] = {0.0, 0.0}
+
+
 
 uint8 segDis () {
 	status_a = port_status(PORT_USB_A, &protocol_a, &device_a);
@@ -277,10 +280,8 @@ init {
 	Deadzone_LY = (fix32)inDeadzone_LY;
 	Deadzone_L_Radial = (fix32)inDeadzone_L_Radial;
 	Outdead_LX = (fix32)inOutdead_LX;
-	Outdead_LY = (fix32)inOutdead_LY;
-	
+	Outdead_LY = (fix32)inOutdead_LY;	
 }
-
 
 main {
 	if(mod((fix32)system_time(), (fix32)segTime) == 0.0) {
@@ -292,21 +293,19 @@ main {
 	}
 //is left pad being touched?
 	leftPress = isLeftPress();
-		//	
 //least required touch distance for maximum output
-	fixLeftTrackpad(leftPress);
-	//set_val(SWITCH_LX, solvex);
-	//set_val(SWITCH_LY, solvey);
+	trackoutXY = fixLeftTrackpad(leftPress);
+	set_val(SWITCH_LX, trackoutXY[0]);
+	set_val(SWITCH_LY, trackoutXY[1]);
 //	use right pad to swipe and turn
 	if(adaptivecentering) {
 		trackBuf_diff = getAdaptiveStick();
 	} else {
 		rightPress = isRightPress();
 	}
+//left track pad overrides stick
 	set_val(SWITCH_RX, trackBuf_diff);
 	SteamLeftStick();
-
-//left track pad overrides stick
 //Steam gyro is 1/2 Switch's
 	buffGyro(requiretouchgyro);
 	extraButtons((get_actual(STEAM_ACCX) < (fix32)leanPoint));
@@ -340,8 +339,8 @@ void SteamLeftStick() {
 	}
 }
 
-void fixLeftTrackpad(bool left){
-	fix32 potential;
+fix32 fixLeftTrackpad(bool left){
+	fix32 potential, solvexAndy[] = {0.0, 0.0};
 	if (left){
 		if((get_actual(STEAM_TOUCH_LX) > Deadzone_L_Radial) || (get_actual(STEAM_TOUCH_LX) < inv(Deadzone_L_Radial)) ) {
 			fix32 solvex;
@@ -357,7 +356,8 @@ void fixLeftTrackpad(bool left){
 					potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (Outdead_LX - Deadzone_LX);
 					solvex = cos(atan2(get_actual(STEAM_TOUCH_LY), get_actual(STEAM_TOUCH_LX))) * potential;
 			}
-			set_val(SWITCH_LX, solvex);
+			solvexAndy[0] = solvex;
+//			set_val(SWITCH_LX, solvex);
 		}
 		if((get_actual(STEAM_TOUCH_LY) > Deadzone_L_Radial) || (get_actual(STEAM_TOUCH_LY) < inv(Deadzone_L_Radial)) ) {
 			fix32 solvey;
@@ -373,9 +373,11 @@ void fixLeftTrackpad(bool left){
 				potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (Outdead_LY - Deadzone_LY);
 				solvey = sin(atan2(get_actual(STEAM_TOUCH_LY), get_actual(STEAM_TOUCH_LX))) * potential;
 			}
-			set_val(SWITCH_LY, solvey);
+			solvexAndy[1] = solvey;
+//			set_val(SWITCH_LY, solvey);
 		}
 	}
+	return(solvexAndy);
 }
 
 void buffGyro(bool isTouchGyro){
