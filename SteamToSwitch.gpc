@@ -223,7 +223,7 @@ uint16 inOutdead_LX, inOutdead_LY;
 
 fix32 outToGyro, Deadzone_LX, Deadzone_LY, Deadzone_L_Radial, Outdead_LX, Outdead_LY;
 fix32 trackBuf_strt, trackBuf_new, trackBuf_release, trackBuf_diff, rightTimePress;
-fix32 trackoutXY[2] = {0.0, 0.0}
+fix32 trackoutXY[2] = {0.0, 0.0};
 
 
 
