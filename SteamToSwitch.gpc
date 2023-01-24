@@ -8,6 +8,278 @@
 */
 
 #pragma METAINFO("Steam Controller Switch", 1, 01, "DaMu")
+
+#include <display.gph>
+#include <switch.gph>
+#include <steam.gph>
+
+#define SEGMAX				5
+
+#define DELTATIME			16.0
+
+#define TOUCHTHRESH			45.0
+#define DECAY				0.05
+#define SWIPESCALE			0.84
+#define POLLINGNO			215
+
+#define DEADZONE_L_X		6.6
+#define DEADZONE_L_Y    	6.6
+#define RADIAL_DEADZONE_L   5.6
+#define DEADZONE_R_X    	30.0
+#define DEADZONE_R_Y    	30.0
+#define DEADZONE_D			1.0
+#define MINLEFT_X			15.0
+#define MINLEFT_Y			15.0
+#define OUTDEAD_L_X			57.5
+#define OUTDEAD_L_Y			57.5
+
+// 1 byte == 8bits
+bool leftPress, rightPress;
+bool requiretouchgyro, swipedecay, swipetrack, adaptivecentering;
+
+uint8 status_a, status_b, protocol_a, protocol_b, device_a, device_b;
+uint8 seg = 0;
+
+int8 gyroMultiply, leanPoint;
+
+// 2 bytes == 16bits
+uint16 segTime, inDeadzone_LX, inDeadzone_LY, inDeadzone_L_Radial;  
+uint16 inOutdead_LX, inOutdead_LY;
+
+fix32 outToGyro, Deadzone_LX, Deadzone_LY, Deadzone_L_Radial, Outdead_LX, Outdead_LY;
+fix32 trackBuf_strt, trackBuf_new, trackBuf_release, trackBuf_diff, rightTimePress;
+
+uint8 segDis () {
+	status_a = port_status(PORT_USB_A, &protocol_a, &device_a);
+	status_b = port_status(PORT_USB_B, &protocol_b, &device_b);
+	if((status_a & DIR_INPUT) && (protocol_a == PROTOCOL_STEAM)) {
+		printf("%u", device_a);
+		return(_S_);
+}
+	return(_N_);
+}
+
+uint8 segDisRepeat (uint8 i) {
+	status_a = port_status(PORT_USB_A, &protocol_a, &device_b);
+	status_b = port_status(PORT_USB_B, &protocol_b, &device_b);
+	const uint8 steamName[5] = {
+		_S_, _T_, _E_, _A_, _M_
+	},
+	noController[5] = {
+		_N_, _O_, _C_, _O_, _R_
+	};
+	if((status_a & DIR_INPUT) && (protocol_a == PROTOCOL_STEAM)) {
+		return(steamName[i]);
+	}
+	return(noController[i]);
+}
+
+init {
+	display_overlay(segDis(), segTime);
+
+	trackBuf_strt =  0.0;
+	trackBuf_release =  0.0;
+	trackBuf_new =  0.0;
+	rightTimePress = 0.0;
+	trackBuf_diff =  trackBuf_release - trackBuf_strt;
+	
+	pmem_load();
+	pmem_read(0, &requiretouchgyro);
+	pmem_read(1, &swipedecay);
+	pmem_read(2, &swipetrack);
+	pmem_read(3, &adaptivecentering);
+	pmem_read(4, &gyroMultiply);
+	pmem_read(5, &leanPoint);
+	pmem_read(6, &segTime);
+	pmem_read(8, &inDeadzone_LX);
+	pmem_read(10, &inDeadzone_LY);
+	pmem_read(12, &inDeadzone_L_Radial);
+	pmem_read(14, &inOutdead_LX);
+	pmem_read(16, &inOutdead_LY);
+	outToGyro = (gyroMultiply < 0) ? ((fix32)5 / (abs(((fix32)gyroMultiply)) + (fix32)5)): (fix32)gyroMultiply;
+	Deadzone_LX = (fix32)inDeadzone_LX;
+	Deadzone_LY = (fix32)inDeadzone_LY;
+	Deadzone_L_Radial = (fix32)inDeadzone_L_Radial;
+	Outdead_LX = (fix32)inOutdead_LX;
+	Outdead_LY = (fix32)inOutdead_LY;
+}
+
+main {
+	if(mod((fix32)system_time(), (fix32)segTime) == 0.0) {
+		display_overlay(segDisRepeat(seg), segTime);
+		seg++;
+		if(seg >= SEGMAX) {
+			seg = 0;
+		}
+	}
+//is left pad being touched?
+	leftPress = isLeftPress();
+//least required touch distance for maximum output
+	fixLeftTrackpad(leftPress);
+//	set_val(SWITCH_LX, trackoutX);
+//	set_val(SWITCH_LY, trackoutY);
+//	use right pad to swipe and turn
+	if(adaptivecentering) {
+		trackBuf_diff = getAdaptiveStick();
+	} else {
+		rightPress = isRightPress();
+	}
+//left track pad overrides stick
+	set_val(SWITCH_RX, trackBuf_diff);
+	SteamLeftStick();
+//Steam gyro is 1/2 Switch's
+	buffGyro(requiretouchgyro);
+	extraButtons((get_actual(STEAM_ACCX) < (fix32)leanPoint));
+}
+
+//If touching left pad, move left stick. Reset to center on release.
+bool isLeftPress(){
+	if (get_actual(STEAM_TOUCHL) < TOUCHTHRESH){
+		set_val(SWITCH_LX, 0);
+		set_val(SWITCH_LY, 0);
+		return(FALSE);
+	}
+	return(TRUE);
+}
+
+bool isRightPress(){
+	if (get_actual(STEAM_TOUCHR) < TOUCHTHRESH){
+//Not touching right pad resets right stick output.
+		//ffb_reset();
+		set_val(SWITCH_RX, 0);
+		set_val(SWITCH_RY, 0);
+		return(FALSE);
+	}
+	return (TRUE);
+}
+
+void SteamLeftStick() {
+	if (abs(get_actual(STEAM_STICKX)) > TOUCHTHRESH || abs(get_actual(STEAM_STICKY)) > TOUCHTHRESH ){
+	set_val(SWITCH_RX, get_actual(STEAM_STICKX));
+	set_val(SWITCH_RY, get_actual(STEAM_STICKY));
+	}
+}
+
+void fixLeftTrackpad(bool left){
+	fix32 potential, solvex, solvey;
+	if (left){
+		if((get_actual(STEAM_TOUCH_LX) > Deadzone_L_Radial) || (get_actual(STEAM_TOUCH_LX) < inv(Deadzone_L_Radial)) ) {
+			if((get_actual(STEAM_TOUCH_LY) < Deadzone_LY) || (get_actual(STEAM_TOUCH_LY) > inv(Deadzone_LY))) {
+				//ignore Y if there is no Y input
+				if(get_actual(STEAM_TOUCH_LX) < 0.0) {
+					solvex = max(-100.0, (fix32)((get_actual(STEAM_TOUCH_LX) + Deadzone_LX) * 100.0 / Outdead_LX));
+				}
+				if(get_actual(STEAM_TOUCH_LX) > 0.0) {
+					solvex = min(100.0, (fix32)((get_actual(STEAM_TOUCH_LX) - Deadzone_LX) * 100.0 / Outdead_LX));
+				}
+			} else {
+					potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (Outdead_LX - Deadzone_LX);
+					solvex = cos(atan2(get_actual(STEAM_TOUCH_LY), get_actual(STEAM_TOUCH_LX))) * potential;
+			}
+			set_val(SWITCH_LX, solvex);
+		}
+		if((get_actual(STEAM_TOUCH_LY) > Deadzone_L_Radial) || (get_actual(STEAM_TOUCH_LY) < inv(Deadzone_L_Radial)) ) {
+			if((get_actual(STEAM_TOUCH_LX) < Deadzone_LX) || (get_actual(STEAM_TOUCH_LX) > inv(Deadzone_LX))) {
+				//ignore X if there is no X input
+				if(get_actual(STEAM_TOUCH_LY) < 0.0) {
+					solvey = max(-100.0, (fix32)((get_actual(STEAM_TOUCH_LY) + Deadzone_LY) * 100.0 / Outdead_LY));
+				}
+				else {
+					solvey = min(100.0, (fix32)((get_actual(STEAM_TOUCH_LY) - Deadzone_LY) * 100.0 / Outdead_LY));
+				}
+			} else {
+				potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (Outdead_LY - Deadzone_LY);
+				solvey = sin(atan2(get_actual(STEAM_TOUCH_LY), get_actual(STEAM_TOUCH_LX))) * potential;
+			}
+			set_val(SWITCH_LY, solvey);
+		}
+	}
+}
+
+void buffGyro(bool isTouchGyro){
+	if(isTouchGyro){
+		set_val(SWITCH_GYROZ, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_GYROZ) * outToGyro : 0.0);
+		set_val(SWITCH_GYROY, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_GYROY) * outToGyro : 0.0);
+		set_val(SWITCH_GYROX, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_GYROX) : 0.0);
+		set_val(SWITCH_ACCY,  (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_ACCY)  : 0.0);
+		set_val(SWITCH_ACCZ, abs(get_actual(SWITCH_ACCY)) - 25.0  );
+	} else {
+		set_val(SWITCH_GYROZ, get_actual(STEAM_GYROZ) * outToGyro);
+		set_val(SWITCH_GYROY, get_actual(STEAM_GYROY) * outToGyro);
+	}
+}
+
+void extraButtons(bool leanLeft) {
+	//left Paddle is Specials
+	if(get_actual(STEAM_PADDLE_L)){
+		printf("test");
+		set_val(SWITCH_RS, 100.0);
+	}
+	//right Paddle is Jump
+	if(get_actual(STEAM_PADDLE_R)){
+		set_val(SWITCH_B, 100.0);
+	}
+	//right Pad is Jump
+	if(get_actual(STEAM_RTP)){
+		set_val(SWITCH_RS, 0.0);
+		set_val(SWITCH_B, 100.0);
+	}
+	//when in normal position, Stick Click is Right Stick Click
+	if(get_actual(STEAM_STICK_CLICK) && !leanLeft) {
+		set_val(SWITCH_LS, 0.0);
+		set_val(SWITCH_RS, 100.0);
+	}
+	//lean left and press Steam button for Capture
+	if(get_actual(STEAM_HOME) && leanLeft) {
+		set_val(SWITCH_HOME, 0.0);
+		set_val(SWITCH_CAPTURE, 100.0);
+	}
+	
+	/*
+	//Convert stick to D-Pad
+	if (leanLeft) {
+		if (abs(get_actual(STEAM_STICKX)) > TOUCHTHRESH || abs(get_actual(STEAM_STICKY)) > TOUCHTHRESH ){
+			set_val(SWITCH_UP, 100.0));
+			set_val(SWITCH_DOWN, 100.0);
+			set_val(SWITCH_LEFT, 100.0);
+			set_val(SWITCH_RIGHT, 100.0);
+		}
+	}
+	*/
+}
+
+void swipeDecayZero() {
+	/*
+	if(is_release(STEAM_TOUCHR)){
+		if(SWIPETRACK){
+			if(SWIPEDECAY) {
+				trackBuf_diff = (trackBuf_diff > 0.0) ? trackBuf_diff - DECAY : trackBuf_diff + DECAY;
+			}
+		} else {
+			trackBuf_diff = 0.0;
+		}
+	}
+ */
+}
+
+fix32 getAdaptiveStick() {
+	if (event_active(STEAM_TOUCHR)) {
+		trackBuf_strt = get_actual(STEAM_TOUCH_RX);
+		printf("right Press");
+		return(0.0);
+	}
+	if(is_active(STEAM_TOUCHR)) {
+		trackBuf_new = get_actual(STEAM_TOUCH_RX);
+		printf("%.1f - %.1f", trackBuf_new, trackBuf_strt);
+		trackBuf_diff = (trackBuf_new - trackBuf_strt) * SWIPESCALE;
+	}
+	if (event_release(STEAM_TOUCHR)) {
+		printf("release right");
+		return(0.0);
+	}
+	return(clamp(trackBuf_diff, -100.0, 100.0));
+}
+
 /*
 <cfgdesc>
 [Gyro]
@@ -183,283 +455,3 @@ step = 1
 </cfgdesc>
 */
 //bitoffset = value
-
-#include <display.gph>
-#include <switch.gph>
-#include <steam.gph>
-
-#define SEGMAX				5
-
-#define DELTATIME			16.0
-
-#define TOUCHTHRESH			45.0
-#define DECAY				0.05
-#define SWIPESCALE			0.84
-#define POLLINGNO			215
-
-#define DEADZONE_L_X		6.6
-#define DEADZONE_L_Y    	6.6
-#define RADIAL_DEADZONE_L   5.6
-#define DEADZONE_R_X    	30.0
-#define DEADZONE_R_Y    	30.0
-#define DEADZONE_D			1.0
-#define MINLEFT_X			15.0
-#define MINLEFT_Y			15.0
-#define OUTDEAD_L_X			57.5
-#define OUTDEAD_L_Y			57.5
-
-// 1 byte == 8bits
-bool leftPress, rightPress;
-bool requiretouchgyro, swipedecay, swipetrack, adaptivecentering;
-
-uint8 status_a, status_b, protocol_a, protocol_b, device_a, device_b;
-uint8 seg = 0;
-
-int8 gyroMultiply, leanPoint;
-
-// 2 bytes == 16bits
-uint16 segTime, inDeadzone_LX, inDeadzone_LY, inDeadzone_L_Radial;  
-uint16 inOutdead_LX, inOutdead_LY;
-
-fix32 outToGyro, Deadzone_LX, Deadzone_LY, Deadzone_L_Radial, Outdead_LX, Outdead_LY;
-fix32 trackBuf_strt, trackBuf_new, trackBuf_release, trackBuf_diff, rightTimePress;
-fix32 trackoutXY[2] = {0.0, 0.0};
-
-
-
-uint8 segDis () {
-	status_a = port_status(PORT_USB_A, &protocol_a, &device_a);
-	status_b = port_status(PORT_USB_B, &protocol_b, &device_b);
-	if((status_a & DIR_INPUT) && (protocol_a == PROTOCOL_STEAM)) {
-		printf("%u", device_a);
-		return(_S_);
-}
-	return(_N_);
-}
-
-uint8 segDisRepeat (uint8 i) {
-	status_a = port_status(PORT_USB_A, &protocol_a, &device_b);
-	status_b = port_status(PORT_USB_B, &protocol_b, &device_b);
-	const uint8 steamName[5] = {
-		_S_, _T_, _E_, _A_, _M_
-	},
-	noController[5] = {
-		_N_, _O_, _C_, _O_, _R_
-	};
-	if((status_a & DIR_INPUT) && (protocol_a == PROTOCOL_STEAM)) {
-		return(steamName[i]);
-	}
-	return(noController[i]);
-}
-
-init {
-
-	display_overlay(segDis(), segTime);
-
-	trackBuf_strt =  0.0;
-	trackBuf_release =  0.0;
-	trackBuf_new =  0.0;
-	rightTimePress = 0.0;
-	trackBuf_diff =  trackBuf_release - trackBuf_strt;
-	
-	pmem_load();
-	pmem_read(0, &requiretouchgyro);
-	pmem_read(1, &swipedecay);
-	pmem_read(2, &swipetrack);
-	pmem_read(3, &adaptivecentering);
-	pmem_read(4, &gyroMultiply);
-	pmem_read(5, &leanPoint);
-	pmem_read(6, &segTime);
-	pmem_read(8, &inDeadzone_LX);
-	pmem_read(10, &inDeadzone_LY);
-	pmem_read(12, &inDeadzone_L_Radial);
-	pmem_read(14, &inOutdead_LX);
-	pmem_read(16, &inOutdead_LY);
-	outToGyro = (gyroMultiply < 0) ? ((fix32)5 / (abs(((fix32)gyroMultiply)) + (fix32)5)): (fix32)gyroMultiply;
-	Deadzone_LX = (fix32)inDeadzone_LX;
-	Deadzone_LY = (fix32)inDeadzone_LY;
-	Deadzone_L_Radial = (fix32)inDeadzone_L_Radial;
-	Outdead_LX = (fix32)inOutdead_LX;
-	Outdead_LY = (fix32)inOutdead_LY;	
-}
-
-main {
-	if(mod((fix32)system_time(), (fix32)segTime) == 0.0) {
-		display_overlay(segDisRepeat(seg), segTime);
-		seg++;
-		if(seg >= SEGMAX) {
-			seg = 0;
-		}
-	}
-//is left pad being touched?
-	leftPress = isLeftPress();
-//least required touch distance for maximum output
-	trackoutXY = fixLeftTrackpad(leftPress);
-	set_val(SWITCH_LX, trackoutXY[0]);
-	set_val(SWITCH_LY, trackoutXY[1]);
-//	use right pad to swipe and turn
-	if(adaptivecentering) {
-		trackBuf_diff = getAdaptiveStick();
-	} else {
-		rightPress = isRightPress();
-	}
-//left track pad overrides stick
-	set_val(SWITCH_RX, trackBuf_diff);
-	SteamLeftStick();
-//Steam gyro is 1/2 Switch's
-	buffGyro(requiretouchgyro);
-	extraButtons((get_actual(STEAM_ACCX) < (fix32)leanPoint));
-}
-
-//If touching left pad, move left stick. Reset to center on release.
-bool isLeftPress(){
-	if (get_actual(STEAM_TOUCHL) < TOUCHTHRESH){
-		set_val(SWITCH_LX, 0);
-		set_val(SWITCH_LY, 0);
-		return(FALSE);
-	}
-	return(TRUE);
-}
-
-bool isRightPress(){
-	if (get_actual(STEAM_TOUCHR) < TOUCHTHRESH){
-//Not touching right pad resets right stick output.
-		//ffb_reset();
-		set_val(SWITCH_RX, 0);
-		set_val(SWITCH_RY, 0);
-		return(FALSE);
-	}
-	return (TRUE);
-}
-
-void SteamLeftStick() {
-	if (abs(get_actual(STEAM_STICKX)) > TOUCHTHRESH || abs(get_actual(STEAM_STICKY)) > TOUCHTHRESH ){
-	set_val(SWITCH_RX, get_actual(STEAM_STICKX));
-	set_val(SWITCH_RY, get_actual(STEAM_STICKY));
-	}
-}
-
-fix32 fixLeftTrackpad(bool left){
-	fix32 potential, solvexAndy[] = {0.0, 0.0};
-	if (left){
-		if((get_actual(STEAM_TOUCH_LX) > Deadzone_L_Radial) || (get_actual(STEAM_TOUCH_LX) < inv(Deadzone_L_Radial)) ) {
-			fix32 solvex;
-			if((get_actual(STEAM_TOUCH_LY) < Deadzone_LY) || (get_actual(STEAM_TOUCH_LY) > inv(Deadzone_LY))) {
-				//ignore Y if there is no Y input
-				if(get_actual(STEAM_TOUCH_LX) < 0.0) {
-					solvex = max(-100.0, (fix32)((get_actual(STEAM_TOUCH_LX) + Deadzone_LX) * 100.0 / Outdead_LX));
-				}
-				if(get_actual(STEAM_TOUCH_LX) > 0.0) {
-					solvex = min(100.0, (fix32)((get_actual(STEAM_TOUCH_LX) - Deadzone_LX) * 100.0 / Outdead_LX));
-				}
-			} else {
-					potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (Outdead_LX - Deadzone_LX);
-					solvex = cos(atan2(get_actual(STEAM_TOUCH_LY), get_actual(STEAM_TOUCH_LX))) * potential;
-			}
-			solvexAndy[0] = solvex;
-//			set_val(SWITCH_LX, solvex);
-		}
-		if((get_actual(STEAM_TOUCH_LY) > Deadzone_L_Radial) || (get_actual(STEAM_TOUCH_LY) < inv(Deadzone_L_Radial)) ) {
-			fix32 solvey;
-			if((get_actual(STEAM_TOUCH_LX) < Deadzone_LX) || (get_actual(STEAM_TOUCH_LX) > inv(Deadzone_LX))) {
-				//ignore X if there is no X input
-				if(get_actual(STEAM_TOUCH_LY) < 0.0) {
-					solvey = max(-100.0, (fix32)((get_actual(STEAM_TOUCH_LY) + Deadzone_LY) * 100.0 / Outdead_LY));
-				}
-				else {
-					solvey = min(100.0, (fix32)((get_actual(STEAM_TOUCH_LY) - Deadzone_LY) * 100.0 / Outdead_LY));
-				}
-			} else {
-				potential = 100.0 * sqrt(pow(get_actual(STEAM_TOUCH_LX),2.0) + pow(get_actual(STEAM_TOUCH_LY),2.0)) / (Outdead_LY - Deadzone_LY);
-				solvey = sin(atan2(get_actual(STEAM_TOUCH_LY), get_actual(STEAM_TOUCH_LX))) * potential;
-			}
-			solvexAndy[1] = solvey;
-//			set_val(SWITCH_LY, solvey);
-		}
-	}
-	return(solvexAndy);
-}
-
-void buffGyro(bool isTouchGyro){
-	if(isTouchGyro){
-		set_val(SWITCH_GYROZ, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_GYROZ) * outToGyro : 0.0);
-		set_val(SWITCH_GYROY, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_GYROY) * outToGyro : 0.0);
-		set_val(SWITCH_GYROX, (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_GYROX) : 0.0);
-		set_val(SWITCH_ACCY,  (get_actual(STEAM_TOUCHR) > TOUCHTHRESH) ? get_actual(STEAM_ACCY)  : 0.0);
-		set_val(SWITCH_ACCZ, abs(get_actual(SWITCH_ACCY)) - 25.0  );
-	} else {
-		set_val(SWITCH_GYROZ, get_actual(STEAM_GYROZ) * outToGyro);
-		set_val(SWITCH_GYROY, get_actual(STEAM_GYROY) * outToGyro);
-	}
-}
-
-void extraButtons(bool leanLeft) {
-	//left Paddle is Specials
-	if(get_actual(STEAM_PADDLE_L)){
-		printf("test");
-		set_val(SWITCH_RS, 100.0);
-	}
-	//right Paddle is Jump
-	if(get_actual(STEAM_PADDLE_R)){
-		set_val(SWITCH_B, 100.0);
-	}
-	//right Pad is Jump
-	if(get_actual(STEAM_RTP)){
-		set_val(SWITCH_RS, 0.0);
-		set_val(SWITCH_B, 100.0);
-	}
-	//when in normal position, Stick Click is Right Stick Click
-	if(get_actual(STEAM_STICK_CLICK) && !leanLeft) {
-		set_val(SWITCH_LS, 0.0);
-		set_val(SWITCH_RS, 100.0);
-	}
-	//lean left and press Steam button for Capture
-	if(get_actual(STEAM_HOME) && leanLeft) {
-		set_val(SWITCH_HOME, 0.0);
-		set_val(SWITCH_CAPTURE, 100.0);
-	}
-	
-	/*
-	//Convert stick to D-Pad
-	if (leanLeft) {
-		if (abs(get_actual(STEAM_STICKX)) > TOUCHTHRESH || abs(get_actual(STEAM_STICKY)) > TOUCHTHRESH ){
-			set_val(SWITCH_UP, 100.0));
-			set_val(SWITCH_DOWN, 100.0);
-			set_val(SWITCH_LEFT, 100.0);
-			set_val(SWITCH_RIGHT, 100.0);
-		}
-	}
-	*/
-}
-
-void swipeDecayZero() {
-	/*
-	if(is_release(STEAM_TOUCHR)){
-		if(SWIPETRACK){
-			if(SWIPEDECAY) {
-				trackBuf_diff = (trackBuf_diff > 0.0) ? trackBuf_diff - DECAY : trackBuf_diff + DECAY;
-			}
-		} else {
-			trackBuf_diff = 0.0;
-		}
-	}
- */
-}
-
-fix32 getAdaptiveStick() {
-	if (event_active(STEAM_TOUCHR)) {
-		trackBuf_strt = get_actual(STEAM_TOUCH_RX);
-		printf("right Press");
-		return(0.0);
-	}
-	if(is_active(STEAM_TOUCHR)) {
-		trackBuf_new = get_actual(STEAM_TOUCH_RX);
-		printf("%.1f - %.1f", trackBuf_new, trackBuf_strt);
-		trackBuf_diff = (trackBuf_new - trackBuf_strt) * SWIPESCALE;
-	}
-	if (event_release(STEAM_TOUCHR)) {
-		printf("release right");
-		return(0.0);
-	}
-	return(clamp(trackBuf_diff, -100.0, 100.0));
-}
