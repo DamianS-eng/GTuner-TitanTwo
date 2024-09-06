@@ -114,3 +114,9 @@ Alter the gyro output by a scale factor **gyroMultiply**.
 
 **extraButtons**
 uses **leanLeft** to switch stick click's function based on the tilt of the controller. Other button remappings, including the paddles, dual-stage triggers and touchpad clicks are managed here.
+
+#### Compute the new stick output values based on a changed radial deadzone.
+
+If both the X and Y values of a trackpad are greater than zero, the official output is the diagonal force vector, the hypotenuse of the triangle made up by the x and y input values. 
+
+Calculate the hypotenuse by multiplying the value by the minimum deadzone and then divide by the outer deadzone, then transplated to its relative axis using arcsin or arccos.
