@@ -160,6 +160,15 @@ void SteamLeftStick() {
 	}
 }
 
+// fix the trackpad such that the touch position resolves to a circular response curve
+// to figure out the proper magnitude of a direction (horizontal for LX or vertical for LY),  
+// before all this, check if within deadzone and if the other direction is absent.
+// the potential is the proper magnitude of each direction with respect to assigned inner and outer deadzones. without deadzones, this is not necessary; just use the magnitude, deadzone would be 0 and outdead would be 100
+// if a direction is absent, just take the direction magnitude and adjust it in proportion to the deadzones
+// if both directions exist, the actual potential of one direction is the resolved vector after computing the arctangent of the combined vectors
+// solve(x/y) finds the radians of the two vectors, multiplies by the potential proportionate to the dead and outer zones, and then figures the proper trigonometric component to get the decimal output
+// in retrospect, this can be cleaned up much more, but it does work to output a circular response curve, which is what the Switch expects
+
 void fixLeftTrackpad(bool left){
 	fix32 potential, solvex, solvey;
 	if (left){
